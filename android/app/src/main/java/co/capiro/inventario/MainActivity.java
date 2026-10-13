@@ -105,8 +105,32 @@ public class MainActivity extends Activity {
             return guardar(nombre, contenido.getBytes(StandardCharsets.UTF_8), mime);
         }
 
+        @JavascriptInterface
+        public String shareFileB64(String nombre, String base64, String mime) {
+            try {
+                final Uri uri = escribir(nombre, android.util.Base64.decode(base64, android.util.Base64.DEFAULT), mime);
+                if (uri == null) return "no";
+                final String tipo = mime == null ? "application/octet-stream" : mime;
+                runOnUiThread(() -> {
+                    Intent enviar = new Intent(Intent.ACTION_SEND);
+                    enviar.setType(tipo);
+                    enviar.putExtra(Intent.EXTRA_STREAM, uri);
+                    enviar.putExtra(Intent.EXTRA_SUBJECT, nombre);
+                    enviar.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    try { startActivity(Intent.createChooser(enviar, "Enviar pedido")); } catch (Exception ignored) { }
+                });
+                return "ok";
+            } catch (Exception e) {
+                return "no";
+            }
+        }
+
         private String guardar(String nombre, byte[] datos, String mime) {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return "no";
+            return escribir(nombre, datos, mime) != null ? "ok" : "no";
+        }
+
+        private Uri escribir(String nombre, byte[] datos, String mime) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null;
             try {
                 ContentResolver cr = getContentResolver();
                 ContentValues v = new ContentValues();
@@ -114,13 +138,13 @@ public class MainActivity extends Activity {
                 v.put(MediaStore.Downloads.MIME_TYPE, mime == null ? "text/plain" : mime);
                 v.put(MediaStore.Downloads.RELATIVE_PATH, "Download/Inventario Capiro");
                 Uri uri = cr.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
-                if (uri == null) return "no";
+                if (uri == null) return null;
                 try (OutputStream os = cr.openOutputStream(uri)) {
                     os.write(datos);
                 }
-                return "ok";
+                return uri;
             } catch (Exception e) {
-                return "no";
+                return null;
             }
         }
     }

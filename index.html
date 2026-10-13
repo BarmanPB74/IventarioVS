@@ -523,6 +523,7 @@ function vPedido(){const items=planPedido();const ped=items.filter(x=>x.pedir>0)
   h+='<div class="stats"><div class="stat"><div class="lbl">Con datos reales</div><div class="n">'+conDatos.length+'</div></div><div class="stat"><div class="lbl">Líneas a pedir</div><div class="n">'+ped.length+'</div></div><div class="stat"><div class="lbl">Agotados P1–P4 28 d</div><div class="n">'+agot+'</div></div></div>';
   if(agotHoy)h+='<div class="alert bad"><span class="dot"></span><div class="t"><b>'+agotHoy+' producto'+(agotHoy>1?"s":"")+' P1–P4 agotado'+(agotHoy>1?"s":"")+' ahora</b><div>La meta de esta fase es cero agotados en el pico de jueves a sábado.</div></div></div>';
   h+='<div class="form" style="margin-top:12px"><div class="grid2"><label class="f" for="pdCob">Cubrir días<input id="pdCob" type="number" inputmode="numeric" value="'+cobertura()+'"></label><div style="display:flex;align-items:end"><button class="btn sec" id="pdProv" style="width:100%">Proveedores ('+Object.keys(S.provs).length+')</button></div></div><p class="hint">Con 2 conteos o más separados por 3 días, la app calcula la salida real por día y pide para cubrir esos días más el tiempo de entrega del proveedor. Sin datos usa el ideal que configuraste.</p></div>';
+  if(ped.length)h+='<div class="btns" style="margin-top:12px"><button class="btn" id="pdPdf">Enviar PDF a la jefa</button><button class="btn sec" id="pdPdfSave">Guardar PDF</button></div><p class="hint">El PDF agrupa las líneas por proveedor, marca agotados y bajo mínimo, suma el costo estimado y deja espacio para aprobar. Ajusta las cantidades abajo antes de generarlo.</p>';
   if(!ped.length)h+='<div class="empty">Nada por pedir. '+(conDatos.length?'':'Haz otro cuadre en unos días para que la app calcule la salida real, o configura el ideal de cada producto.')+'</div>';
   const grupos={};ped.forEach(x=>{const k=x.pv?x.pv.id:"_";(grupos[k]=grupos[k]||[]).push(x);});
   Object.keys(grupos).sort((a,b)=>a==="_"?1:b==="_"?-1:String(S.provs[a].nombre).localeCompare(S.provs[b].nombre)).forEach(k=>{const pv=k==="_"?null:Object.assign({id:k},S.provs[k]);const arr=grupos[k].sort((a,b)=>a.p.nombre.localeCompare(b.p.nombre));
@@ -533,7 +534,97 @@ function vPedido(){const items=planPedido();const ped=items.filter(x=>x.pedir>0)
   return h;}
 function waNum(t){let d=String(t||"").replace(/\D/g,"");if(d.length===10)d="57"+d;return d.length>=11?d:"";}
 function textoPedido(pv,arr){return'Hola'+(pv&&pv.contacto?' '+pv.contacto:'')+', pedido de Café Capiro para '+(pv&&Number(pv.entrega)>0?'entregar en '+pv.entrega+' día'+(pv.entrega>1?'s':''):'la próxima entrega')+':\n'+arr.filter(x=>x.pedir>0).map(x=>'- '+fmt(x.pedir)+' '+(x.p.unidad||"und")+' '+x.p.nombre).join("\n")+'\nGracias.';}
+/* ---------- Pedido en PDF para aprobación (versión 0.6) ---------- */
+const PDF=(()=>{
+  const WN=[278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
+  const WB=[278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584];
+  const REP={"–":"-","—":"-","‘":"'","’":"'","“":'"',"”":'"',"…":"...","−":"-"," ":" ","→":"->","≥":">=","≤":"<="};
+  function clean(s){return String(s==null?"":s).replace(/[–—‘’“”…− →≥≤]/g,c=>REP[c]).replace(/[^\x20-\xff]/g,"?");}
+  function cw(ch,b){const c=ch.charCodeAt(0);const t=b?WB:WN;if(c>=32&&c<=126)return t[c-32];if(c===0xb7)return 278;const base=ch.normalize("NFD").charCodeAt(0);return base>=32&&base<=126?t[base-32]:556;}
+  function width(s,size,b){s=clean(s);let w=0;for(const ch of s)w+=cw(ch,b);return w*size/1000;}
+  function fit(s,size,b,max){s=clean(s);if(width(s,size,b)<=max)return s;while(s.length>1&&width(s+"...",size,b)>max)s=s.slice(0,-1);return s.trimEnd()+"...";}
+  function wrap(s,size,b,max){const out=[];let cur="";clean(s).split(/\s+/).forEach(w=>{const t=cur?cur+" "+w:w;if(width(t,size,b)<=max)cur=t;else{if(cur)out.push(cur);cur=fit(w,size,b,max);}});if(cur)out.push(cur);return out;}
+  function rgb(h){h=String(h||"#000").replace("#","");return[0,2,4].map(i=>(parseInt(h.substr(i,2),16)/255).toFixed(3)).join(" ");}
+  function esc(s){return clean(s).replace(/\\/g,"\\\\").replace(/\(/g,"\\(").replace(/\)/g,"\\)");}
+  function doc(){const W=595.28,H=841.89;const pages=[];let ops=null;
+    const d={W,H,width,fit,wrap,
+      page(){ops=[];pages.push(ops);return d;},
+      count(){return pages.length;},
+      onPage(i){ops=pages[i];return d;},
+      text(x,y,s,o){o=o||{};const size=o.size||10,b=!!o.bold;let tx=x;const w=width(s,size,b);if(o.align==="right")tx=x-w;else if(o.align==="center")tx=x-w/2;
+        ops.push("BT /"+(b?"F2":"F1")+" "+size+" Tf "+rgb(o.color||"#0b0b0a")+" rg "+tx.toFixed(2)+" "+(H-y).toFixed(2)+" Td ("+esc(s)+") Tj ET");return d;},
+      rect(x,y,w,h,o){o=o||{};let s="";if(o.fill)s+=rgb(o.fill)+" rg ";if(o.stroke)s+=rgb(o.stroke)+" RG "+(o.lw||0.6)+" w ";s+=x.toFixed(2)+" "+(H-y-h).toFixed(2)+" "+w.toFixed(2)+" "+h.toFixed(2)+" re "+(o.fill&&o.stroke?"B":o.fill?"f":"S");ops.push(s);return d;},
+      line(x1,y1,x2,y2,o){o=o||{};ops.push(rgb(o.color||"#0b0b0a")+" RG "+(o.lw||0.6)+" w "+x1.toFixed(2)+" "+(H-y1).toFixed(2)+" m "+x2.toFixed(2)+" "+(H-y2).toFixed(2)+" l S");return d;},
+      bytes(title){const objs=[];const add=s=>{objs.push(s);return objs.length;};
+        add("<< /Type /Catalog /Pages 2 0 R >>");add("PAGES");
+        add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+        add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+        const kids=[];pages.forEach(p=>{const body=p.join("\n");const c=add("<< /Length "+body.length+" >>\nstream\n"+body+"\nendstream");
+          kids.push(add("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 "+W+" "+H+"] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents "+c+" 0 R >>"));});
+        objs[1]="<< /Type /Pages /Kids ["+kids.map(k=>k+" 0 R").join(" ")+"] /Count "+kids.length+" >>";
+        const info=add("<< /Title ("+esc(title||"")+") /Producer (Inventario Capiro) >>");
+        let out="%PDF-1.4\n%\xe2\xe3\xcf\xd3\n";const off=[];objs.forEach((o,i)=>{off.push(out.length);out+=(i+1)+" 0 obj\n"+o+"\nendobj\n";});
+        const x=out.length;out+="xref\n0 "+(objs.length+1)+"\n0000000000 65535 f \n"+off.map(o=>String(o).padStart(10,"0")+" 00000 n \n").join("")+"trailer\n<< /Size "+(objs.length+1)+" /Root 1 0 R /Info "+info+" 0 R >>\nstartxref\n"+x+"\n%%EOF";
+        const u=new Uint8Array(out.length);for(let i=0;i<out.length;i++)u[i]=out.charCodeAt(i)&255;return u;}};
+    return d;}
+  return{doc,width,clean};})();
+
+function fechaCorta(ts){const d=new Date(ts);return pad(d.getDate())+"/"+pad(d.getMonth()+1)+"/"+d.getFullYear();}
+function pesos(v){return"$ "+Math.round(v).toLocaleString("es-CO");}
+function pedidoPDF(){
+  const items=planPedido();const ped=items.filter(x=>x.pedir>0);if(!ped.length){toast("No hay líneas para pedir.");return null;}
+  const ahora=Date.now();const C={ink:"#0b0b0a",muted:"#6a675f",line:"#dedbd2",soft:"#efede6",band:"#e6e3da",bad:"#a3322a",warn:"#8a5a0e"};
+  const grupos={};ped.forEach(x=>{const k=x.pv?x.pv.id:"_";(grupos[k]=grupos[k]||[]).push(x);});
+  const claves=Object.keys(grupos).sort((a,b)=>a==="_"?1:b==="_"?-1:String(S.provs[a].nombre).localeCompare(S.provs[b].nombre));
+  const costoL=x=>(Number(x.p.costo)||0)*x.pedir;const total=ped.reduce((s,x)=>s+costoL(x),0);const sinCosto=ped.filter(x=>!(Number(x.p.costo)>0)).length;
+  const estado=x=>{const st=x.f.stock;if(x.f.counted&&st<=0)return["Agotado",C.bad];const min=x.minS!==null?x.minS:Number(x.p.min)||0;if(min>0&&st<min)return["Bajo mínimo",C.warn];return["",null];};
+  const d=PDF.doc();const M=40,R=d.W-M,BOT=d.H-50;let y=0;
+  // columnas: casilla, producto, hay, sale/día, pedir, estado, costo
+  const COL=[{x:M,w:22},{x:M+22,w:189,t:"Producto"},{x:M+211,w:48,t:"Hay",r:1},{x:M+259,w:58,t:"Sale/día",r:1},{x:M+317,w:62,t:"Pedir",r:1},{x:M+379,w:66,t:"Estado"},{x:M+445,w:70,t:"Costo est.",r:1}];
+  const cab=()=>{d.rect(M,y,R-M,18,{fill:C.ink});COL.forEach((c,i)=>{if(!c.t)return;d.text(c.r?c.x+c.w-6:c.x+(i===1?2:4),y+12.5,c.t,{size:8,bold:true,color:"#fbfaf6",align:c.r?"right":"left"});});y+=18;};
+  const encabezado=(primera)=>{d.page();y=M;
+    if(primera){d.text(M,y+16,"Pedido a proveedores",{size:20,bold:true});d.text(R,y+8,fechaLarga(ahora),{size:9,color:C.muted,align:"right"});
+      d.text(M,y+32,"Café Capiro · guía para aprobación y compra",{size:10,color:C.muted});y+=44;d.line(M,y,R,y,{lw:1.2});y+=14;}
+    else{d.text(M,y+8,"Pedido a proveedores · continuación",{size:9,bold:true});d.text(R,y+8,fechaCorta(ahora),{size:9,color:C.muted,align:"right"});y+=16;d.line(M,y,R,y,{color:C.line});y+=12;}};
+  let provAct="";const asegurar=(h,enTabla)=>{if(y+h<=BOT)return false;encabezado(false);if(enTabla){d.text(M,y+10,d.fit(provAct+" · continuación",10,true,R-M),{size:10,bold:true});y+=18;cab();}return true;};
+  encabezado(true);
+  // resumen
+  const kpi=[["Líneas a pedir",String(ped.length)],["Proveedores",String(claves.filter(k=>k!=="_").length)+(grupos._?" + sin asignar":"")],["Cubre",cobertura()+" días + entrega"],["Total estimado",total>0?pesos(total):"Sin costos"]];
+  const kw=(R-M-18)/4;kpi.forEach(([l,v],i)=>{const x=M+i*(kw+6);d.rect(x,y,kw,46,{fill:C.soft});d.text(x+10,y+16,l,{size:8,color:C.muted});d.text(x+10,y+35,d.fit(v,13,true,kw-18),{size:13,bold:true});});y+=58;
+  const agot=ped.filter(x=>estado(x)[0]==="Agotado").length,bajos=ped.filter(x=>estado(x)[0]==="Bajo mínimo").length;
+  const nota=["Las cantidades salen de la salida real entre conteos físicos de los últimos 28 días, más los días que tarda cada proveedor en entregar, redondeadas a la caja de compra."];
+  if(agot||bajos)nota.push((agot?agot+" producto"+(agot>1?"s están agotados":" está agotado"):"")+(agot&&bajos?" y ":"")+(bajos?bajos+(bajos>1?" están":" está")+" bajo el mínimo":"")+": conviene pedirlos primero.");
+  if(sinCosto)nota.push(sinCosto+" línea"+(sinCosto>1?"s no tienen":" no tiene")+" costo cargado y no suma"+(sinCosto>1?"n":"")+" al total estimado.");
+  nota.push("Marque la casilla de cada línea pedida y anote el ajuste en Observaciones.");
+  nota.forEach(t=>d.wrap(t,9,false,R-M).forEach(l=>{d.text(M,y+9,l,{size:9,color:C.muted});y+=13;}));y+=8;
+  claves.forEach(k=>{const pv=k==="_"?null:Object.assign({id:k},S.provs[k]);const arr=grupos[k].sort((a,b)=>{const ea=estado(a)[0],eb=estado(b)[0];const r=v=>v==="Agotado"?0:v?1:2;return r(ea)-r(eb)||a.p.nombre.localeCompare(b.p.nombre);});
+    asegurar(30+18+24*Math.min(arr.length,3),false);provAct=pv?pv.nombre:"Sin proveedor asignado";
+    d.rect(M,y,R-M,26,{fill:C.band});d.text(M+8,y+17,d.fit(pv?pv.nombre:"Sin proveedor asignado",13,true,230),{size:13,bold:true});
+    const det=pv?[pv.dia?"Pedir: "+pv.dia:"",Number(pv.entrega)>0?"Entrega en "+pv.entrega+" día"+(pv.entrega>1?"s":""):"",pv.contacto||"",pv.tel||""].filter(Boolean).join(" · "):"Asigne un proveedor a estos productos en Stock";
+    d.text(R-8,y+16.5,d.fit(det,8.5,false,260),{size:8.5,color:C.muted,align:"right"});y+=30;cab();
+    let sub=0;arr.forEach((x,i)=>{const [et,ec]=estado(x);const extra=[x.caja>1?"caja de "+fmt(x.caja):"",x.dm?"":"sin historial: usa el ideal"].filter(Boolean).join(" · ");const h=extra?26:20;
+      asegurar(h,true);if(i%2)d.rect(M,y,R-M,h,{fill:"#f7f5f0"});
+      d.rect(M+6,y+5,10,10,{stroke:C.ink,lw:0.8});
+      d.text(COL[1].x+2,y+13,d.fit(x.p.nombre,9.5,false,COL[1].w-6),{size:9.5});if(extra)d.text(COL[1].x+2,y+22,d.fit(extra,7.5,false,COL[1].w-6),{size:7.5,color:C.muted});
+      d.text(COL[2].x+COL[2].w-6,y+13,fmt(Math.max(0,x.f.stock)),{size:9.5,align:"right"});
+      d.text(COL[3].x+COL[3].w-6,y+13,x.dm?fmt(Math.round(x.dm.dia*10)/10):"-",{size:9.5,align:"right",color:x.dm?C.ink:C.muted});
+      d.text(COL[4].x+COL[4].w-6,y+13,fmt(x.pedir)+" "+(x.p.unidad||"und"),{size:10,bold:true,align:"right"});
+      if(et)d.text(COL[5].x+4,y+13,et,{size:8.5,bold:true,color:ec});
+      const cl=costoL(x);sub+=cl;d.text(COL[6].x+COL[6].w-6,y+13,cl>0?pesos(cl):"-",{size:9.5,align:"right",color:cl>0?C.ink:C.muted});
+      y+=h;d.line(M,y,R,y,{color:C.line,lw:0.5});});
+    asegurar(22,false);d.text(COL[5].x+4,y+14,"Subtotal",{size:9,bold:true});d.text(R-6,y+14,sub>0?pesos(sub):"-",{size:9.5,bold:true,align:"right"});d.line(M,y+20,R,y+20,{lw:1});y+=34;});
+  // observaciones y aprobación
+  if(asegurar(150,false)===false)y+=4;
+  d.text(M,y+10,"Observaciones",{size:10,bold:true});y+=18;for(let i=0;i<4;i++){y+=20;d.line(M,y,R,y,{color:C.line});}y+=36;
+  const half=(R-M-30)/2;[["Preparado por",M],["Aprobado por",M+half+30]].forEach(([l,x])=>{d.line(x,y,x+half,y,{lw:0.8});d.text(x,y+12,l,{size:8.5,color:C.muted});d.text(x+half,y+12,"Fecha: ____/____/______",{size:8.5,color:C.muted,align:"right"});});
+  const n=d.count();for(let i=0;i<n;i++){d.onPage(i);d.line(M,d.H-36,R,d.H-36,{color:C.line,lw:0.5});d.text(M,d.H-24,"Café Capiro · Pedido del "+fechaCorta(ahora)+" · documento interno",{size:7.5,color:C.muted});d.text(R,d.H-24,"Página "+(i+1)+" de "+n,{size:7.5,color:C.muted,align:"right"});}
+  return{bytes:d.bytes("Pedido a proveedores - Café Capiro - "+fechaCorta(ahora)),name:"pedido-capiro-"+new Date(ahora).toISOString().slice(0,10)+".pdf"};}
+async function exportPedidoPDF(compartir){const r=pedidoPDF();if(!r)return;
+  if(compartir&&window.AndroidApp&&window.AndroidApp.shareFileB64){try{let bin="";for(let i=0;i<r.bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,r.bytes.subarray(i,i+0x8000));if(window.AndroidApp.shareFileB64(r.name,btoa(bin),"application/pdf")==="ok"){toast("Guardado en Descargas y listo para enviar");return;}}catch(e){}}
+  if(compartir&&navigator.canShare){try{const f=new File([r.bytes],r.name,{type:"application/pdf"});if(navigator.canShare({files:[f]})){await navigator.share({files:[f],title:"Pedido Café Capiro"});return;}}catch(e){if(e&&e.name==="AbortError")return;}}
+  await saveBinary(r.name,r.bytes,"application/pdf");}
 function bindPedido(main){
+  if($("#pdPdf"))$("#pdPdf").onclick=()=>exportPedidoPDF(true);if($("#pdPdfSave"))$("#pdPdfSave").onclick=()=>exportPedidoPDF(false);
   $("#pdCob").onchange=e=>{const v=Math.max(1,Math.min(30,Number(e.target.value)||7));S.cob=v;try{localStorage.setItem("capiro-cobertura",String(v));}catch(_){}render();};
   $("#pdProv").onclick=editProvs;
   main.querySelectorAll("[data-ped]").forEach(i=>i.onchange=()=>{S.pedEdit[i.dataset.ped]=i.value;});
