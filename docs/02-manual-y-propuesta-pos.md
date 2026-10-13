@@ -205,3 +205,22 @@ La pestaña **Combos** mide qué promoción funciona. Trae 9 combos de la carta 
 **Regla de decisión:** se compara el promedio semanal de las semanas completas con la semana base en tres números: combos vendidos (debe subir), merma valorizada de sus productos rotativos (debe bajar) y ticket promedio (debe subir). Mejora en 2 o 3 → mantener; en 1 → ajustar; en 0 → retirar. Antes de la cuarta semana la lectura es provisional.
 
 La pantalla **Hoy** muestra el **Combo del día**: el combo activo que incluye el producto que vence primero. Mantén máximo 4 combos activos; la app avisa si pasas de ese número. Las fichas se exportan en **Más → Fichas de combos (CSV)**.
+
+## Anexo: Costos y margen (versión 0.3)
+
+En **Stock**, el selector superior cambia entre **Existencias** y **Costos y margen**. La segunda vista calcula cuánto cuesta preparar cada producto y cuánto deja.
+
+| Sección | Qué contiene | Qué cargas |
+| --- | --- | --- |
+| Bebidas y postres | 33 recetas del libro maestro (C-001 a C-023, sodas, infusiones y volcán) con sus gramajes | Precio de venta de cada receta |
+| Reventa | Productos que se venden como llegan (lácteos, cervezas, hojaldres, tortas, envasados, vinos, café empacado) | Costo de compra y precio de venta en el producto |
+| Combos | Costo del combo según sus piezas y precio sugerido (suma de precios × 0,90, redondeado a $500) | Piezas representativas y precio del combo |
+| Preparaciones base | Almíbar (B-001) y cold brew (B-002): calculan solas el costo por ml | Rendimiento real medido |
+
+**Cómo se calcula:** costo de la receta = suma de cantidad × costo unitario de cada insumo. Las cantidades van en la unidad del insumo: la leche en litros (90 ml = 0,09) y el café en gramos (costo por gramo = precio de la bolsa ÷ gramos). El costo % se marca así: hasta 30 % bien, de 30 a 35 % aceptable, más de 35 % revisar.
+
+**Orden para cargar costos:** la vista avisa qué insumo sin costo bloquea más recetas. Empieza por café en grano y leche entera: con esos dos quedan costeadas la mayoría de las bebidas de café. Canela, vainilla y hielo no se incluyen porque su costo por bebida es mínimo.
+
+**Rendimientos estimados:** el almíbar usa 800 ml y el cold brew 850 ml como rendimiento inicial. Son estimaciones; mide el volumen real la próxima vez que prepares cada uno y corrígelo en Preparaciones base.
+
+El reporte completo se exporta en **Más → Costos y margen (CSV)**.
