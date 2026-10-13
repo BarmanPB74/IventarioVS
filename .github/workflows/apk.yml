@@ -41,19 +41,20 @@ jobs:
           for n in 1 2 3 4 5; do
             OLD="inventario-capiro-v0.1.$n"
             NEW="v0.$n.0"
-            if gh release view "$OLD" >/dev/null 2>&1; then
-              SHA=$(git rev-list -n 1 "$OLD")
-              git tag -f "$NEW" "$SHA"
-              git push -f origin "refs/tags/$NEW"
-              gh release edit "$OLD" --tag "$NEW" --title "Inventario Capiro 0.$n.0"
+            gh release view "$OLD" >/dev/null 2>&1 || continue
+            SHA=$(git rev-list -n 1 "$OLD")
+            if gh release view "$NEW" >/dev/null 2>&1; then
+              gh release delete "$OLD" -y
+            else
+              gh release edit "$OLD" --tag "$NEW" --target "$SHA" --title "Inventario Capiro 0.$n.0" --notes "APK de Inventario Capiro 0.$n.0. Se instala encima de la versión anterior sin perder datos."
               mkdir -p viejo && rm -f viejo/*
-              if gh release download "$NEW" -p app-debug.apk -D viejo 2>/dev/null; then
+              if gh release download "$NEW" -p app-debug.apk -D viejo; then
                 mv viejo/app-debug.apk "viejo/inventario-capiro-0.$n.0.apk"
                 gh release upload "$NEW" "viejo/inventario-capiro-0.$n.0.apk" --clobber
                 gh release delete-asset "$NEW" app-debug.apk -y
               fi
-              git push origin --delete "refs/tags/$OLD" || true
             fi
+            gh api -X DELETE "repos/$GH_REPO/git/refs/tags/$OLD" || git push origin --delete "refs/tags/$OLD" || echo "No se pudo borrar la etiqueta $OLD"
           done
 
       - uses: actions/setup-java@v4
