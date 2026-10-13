@@ -92,7 +92,20 @@ public class MainActivity extends Activity {
     /** Métodos visibles para JavaScript como window.AndroidApp. */
     private class Puente {
         @JavascriptInterface
+        public String saveFileB64(String nombre, String base64, String mime) {
+            try {
+                return guardar(nombre, android.util.Base64.decode(base64, android.util.Base64.DEFAULT), mime);
+            } catch (Exception e) {
+                return "no";
+            }
+        }
+
+        @JavascriptInterface
         public String saveFile(String nombre, String contenido, String mime) {
+            return guardar(nombre, contenido.getBytes(StandardCharsets.UTF_8), mime);
+        }
+
+        private String guardar(String nombre, byte[] datos, String mime) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return "no";
             try {
                 ContentResolver cr = getContentResolver();
@@ -103,7 +116,7 @@ public class MainActivity extends Activity {
                 Uri uri = cr.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
                 if (uri == null) return "no";
                 try (OutputStream os = cr.openOutputStream(uri)) {
-                    os.write(contenido.getBytes(StandardCharsets.UTF_8));
+                    os.write(datos);
                 }
                 return "ok";
             } catch (Exception e) {

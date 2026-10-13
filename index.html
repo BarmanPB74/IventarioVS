@@ -137,7 +137,7 @@ const CATS=["Lácteos y refrigerados","Cervezas","Hojaldres y panadería","Torta
 const TIPOS={entrada:"Entrada",merma:"Merma",consumo:"Consumo",venta:"Venta",ajuste:"Ajuste"};
 const PRIO={1:"P1 Lácteo",2:"P2 Cerveza",3:"P3 Hojaldre",4:"P4 Almojábana"};
 const MERMA=["Vencido","Dañado o golpeado","Preparación fallida","Caída / derrame","Degustación","Otro"];
-const S={prod:{},days:{},cuadres:{},combos:{},recetas:{},provs:{},pedEdit:{},cob:(()=>{try{return Number(localStorage.getItem("capiro-cobertura"))||7;}catch(e){return 7;}})(),smode:"exist",cmode:"bebidas",view:"hoy",cat:"Todas",q:"",mov:{t:"entrada",p:"",qty:1,lote:"",vence:"",costo:"",motivo:MERMA[0],nota:"",filtro:""},ccat:"Lácteos y refrigerados",draft:{},backend:null,pendingRender:false,canWrite:true};
+const S={prod:{},days:{},cuadres:{},combos:{},recetas:{},provs:{},alias:{},pedEdit:{},cob:(()=>{try{return Number(localStorage.getItem("capiro-cobertura"))||7;}catch(e){return 7;}})(),smode:"exist",cmode:"bebidas",view:"hoy",cat:"Todas",q:"",mov:{t:"entrada",p:"",qty:1,lote:"",vence:"",costo:"",motivo:MERMA[0],nota:"",filtro:""},ccat:"Lácteos y refrigerados",draft:{},backend:null,pendingRender:false,canWrite:true};
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt=n=>{n=Number(n)||0;return Math.abs(n%1)>0?n.toFixed(1).replace(".",","):String(Math.round(n));};
@@ -154,15 +154,16 @@ function toast(m){const t=$("#toast");t.innerHTML='<div class="toast" role="stat
 const LKEY="capiro-inventario-v1";
 let chain=Promise.resolve();
 function enqueue(fn){chain=chain.then(fn).catch(e=>{console.error(e);toast(e&&e.code==="quota_exceeded"?"Base llena: exporta y limpia movimientos antiguos.":"No se pudo guardar. Revisa la conexión e intenta de nuevo.");});return chain;}
-function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({prod:S.prod,days:S.days,cuadres:S.cuadres,combos:S.combos,recetas:S.recetas,provs:S.provs}));}catch(e){}}
+function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({prod:S.prod,days:S.days,cuadres:S.cuadres,combos:S.combos,recetas:S.recetas,provs:S.provs,alias:S.alias}));}catch(e){}}
 function loadLocal(){let d=null;try{d=JSON.parse(localStorage.getItem(LKEY)||"null");}catch(e){}
-  if(d){S.prod=d.prod||{};S.days=d.days||{};S.cuadres=d.cuadres||{};S.combos=d.combos||JSON.parse(JSON.stringify(COMBOS_BASE));S.recetas=d.recetas||JSON.parse(JSON.stringify(RECETAS_BASE));S.provs=d.provs||{};migrar03();if(!d.combos||!d.recetas)saveLocal();}
+  if(d){S.prod=d.prod||{};S.days=d.days||{};S.cuadres=d.cuadres||{};S.combos=d.combos||JSON.parse(JSON.stringify(COMBOS_BASE));S.recetas=d.recetas||JSON.parse(JSON.stringify(RECETAS_BASE));S.provs=d.provs||{};S.alias=d.alias||{};migrar03();if(!d.combos||!d.recetas)saveLocal();}
   else{S.prod=JSON.parse(JSON.stringify(CATALOGO));S.combos=JSON.parse(JSON.stringify(COMBOS_BASE));S.recetas=JSON.parse(JSON.stringify(RECETAS_BASE));saveLocal();S.firstRun=true;}}
 function migrar03(){if(!S.prod["IN-018"])S.prod["IN-018"]=JSON.parse(JSON.stringify(CATALOGO["IN-018"]));Object.keys(S.combos).forEach(k=>{if(!S.combos[k].piezas&&COMBOS_BASE[k])S.combos[k].piezas=JSON.parse(JSON.stringify(COMBOS_BASE[k].piezas||[]));});}
 const store={
   putProd(id,data){S.prod[id]=data;if(S.backend)return enqueue(()=>S.backend.collection("productos").doc(id).set(data));saveLocal();render();},
   delProd(id){delete S.prod[id];if(S.backend)return enqueue(()=>S.backend.collection("productos").doc(id).delete());saveLocal();render();},
   putDay(date,day){S.days[date]=day;if(S.backend)return enqueue(()=>S.backend.collection("dias").doc(date).set(day));saveLocal();render();},
+  putAlias(map){S.alias=map;if(S.backend)return enqueue(()=>S.backend.collection("ajustes").doc("alias").set({map}));saveLocal();},
   putProv(id,data){S.provs[id]=data;if(S.backend)return enqueue(()=>S.backend.collection("proveedores").doc(id).set(data));saveLocal();render();},
   putReceta(id,data){S.recetas[id]=data;if(S.backend)return enqueue(()=>S.backend.collection("recetas").doc(id).set(data));saveLocal();render();},
   putCombo(id,data){S.combos[id]=data;if(S.backend)return enqueue(()=>S.backend.collection("combos").doc(id).set(data));saveLocal();render();},
@@ -177,15 +178,16 @@ async function connect(){
   if(!db){loadLocal();setMode("local",window.AndroidApp?"En este teléfono":"Solo este navegador");S.ready=true;render();if(S.firstRun)toast("Catálogo del libro maestro cargado: 91 productos");return;}
   S.backend=db;setMode("on","Sincronizado");
   try{const u=window.claude&&window.claude.use?await window.claude.use("user"):null;if(u){const c=await u.can("data.write");if(c===false)S.canWrite=false;}}catch(e){}
-  const loaded={p:false,d:false,c:false,k:false,r:false,v:false};
+  const loaded={p:false,d:false,c:false,k:false,r:false,v:false,a:false};
   const onErr=e=>{setMode("local","Sin conexión");console.error(e);};
   db.collection("productos").onSnapshot(s=>{S.prod=snapToMap(s);loaded.p=true;maybe();},onErr);
   db.collection("dias").onSnapshot(s=>{S.days=snapToMap(s);loaded.d=true;maybe();},onErr);
   db.collection("cuadres").onSnapshot(s=>{S.cuadres=snapToMap(s);loaded.c=true;maybe();},onErr);
+  db.collection("ajustes").onSnapshot(s=>{const m=snapToMap(s);S.alias=(m.alias&&m.alias.map)||{};loaded.a=true;maybe();},onErr);
   db.collection("proveedores").onSnapshot(s=>{S.provs=snapToMap(s);loaded.v=true;maybe();},onErr);
   db.collection("recetas").onSnapshot(s=>{S.recetas=snapToMap(s);loaded.r=true;maybe();},onErr);
   db.collection("combos").onSnapshot(s=>{S.combos=snapToMap(s);loaded.k=true;maybe();},onErr);
-  function maybe(){if(loaded.p&&loaded.d&&loaded.c&&loaded.k&&loaded.r&&loaded.v){S.ready=true;softRender();}}
+  function maybe(){if(loaded.p&&loaded.d&&loaded.c&&loaded.k&&loaded.r&&loaded.v&&loaded.a){S.ready=true;softRender();}}
 }
 function softRender(){const a=document.activeElement;if(a&&$("#main").contains(a)&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)){S.pendingRender=true;return;}render();}
 document.addEventListener("focusout",()=>setTimeout(()=>{if(S.pendingRender){S.pendingRender=false;softRender();}},150));
@@ -285,7 +287,9 @@ function vStock(){
 function vCuadre(){
   const {res}=computeAll();
   const ids=Object.keys(S.prod).filter(id=>S.prod[id].activo!==false&&S.prod[id].cat===S.ccat).sort((a,b)=>S.prod[a].nombre.localeCompare(S.prod[b].nombre));
-  let h='<h2>Cuadre contra Loggro</h2><p class="hint">Cuenta lo que hay físicamente. Si tienes el reporte de Loggro, anota su stock y las ventas que registró desde el último conteo. La app calcula cuánto salió de verdad y dónde Loggro no cuadra.</p>'+catChips(S.ccat,"data-ccat",false);
+  let h='<h2>Cuadre contra Loggro</h2><p class="hint">Cuenta lo que hay físicamente. Importa el reporte de Loggro o anota a mano su stock y las ventas que registró desde el último conteo. La app calcula cuánto salió de verdad y dónde Loggro no cuadra.</p>';
+  const nImp=Object.keys(S.draft).filter(k=>(S.draft[k].lstock??"")!==""||(S.draft[k].lventas??"")!=="").length;
+  h+='<div class="btns" style="margin-bottom:8px"><button class="btn sec" id="cImp">Importar reporte de Loggro</button></div>'+(nImp?'<div class="alert ok"><span class="dot"></span><div class="t"><b>Datos de Loggro listos en '+nImp+' productos</b><div>'+(S.impInfo?esc(S.impInfo.name)+'. ':'')+'Ahora cuenta el físico en cada categoría y guarda el cuadre.</div></div></div>':'')+catChips(S.ccat,"data-ccat",false);
   if(!ids.length)h+='<div class="empty">No hay productos en esta categoría.</div>';
   ids.forEach(id=>{const p=S.prod[id],f=res[id],d=S.draft[id]||{};
     h+='<div class="ct" data-row="'+esc(id)+'"><div class="hd"><b>'+esc(p.nombre)+'</b><span class="sub hint">esperado '+fmt(f.stock)+' '+esc(p.unidad||"")+'</span></div>';
@@ -310,7 +314,7 @@ function resCells(id,f,d){const r=calcRow(f,d);const v=n=>n===null?"—":(n>0?"+
 function cuadreSummary(c){let valor=0,faltVentas=0;(c.filas||[]).map(normFila).forEach(r=>{const cost=Number((S.prod[r.p]||{}).costo)||0;if(typeof r.difApp==="number")valor+=r.difApp*cost;if(typeof r.difV==="number"&&r.difV>0)faltVentas+=r.difV;});return{valor,faltVentas};}
 function vMas(){
   const movs=allMovs().slice().reverse().slice(0,60);
-  let h='<h2>Exportar</h2><div class="btns"><button class="btn sec" id="xStock">Stock actual (CSV)</button><button class="btn sec" id="xMov">Movimientos (CSV)</button><button class="btn sec" id="xCombos">Fichas de combos (CSV)</button><button class="btn sec" id="xCostos">Costos y margen (CSV)</button></div><p class="hint">Abre los CSV en Excel o Google Sheets para mostrarle al dueño las diferencias con Loggro.</p>';
+  let h='<h2>Exportar</h2><div class="btns"><button class="btn sec" id="xStock">Inventario actual</button><button class="btn sec" id="xMov">Movimientos</button><button class="btn sec" id="xCombos">Prueba de combos</button><button class="btn sec" id="xCostos">Costos y margen</button></div><p class="hint">Reportes en Excel (.xlsx) con formato listo para imprimir o enviar a la oficina. El cuadre se exporta desde su ficha en el historial.</p>';
   h+='<h2>Copia de seguridad</h2><p class="hint">'+(S.backend?'Tus datos ya están en la nube. La copia sirve para pasarlos a la app de Android.':'Tus datos viven solo en este teléfono. Si desinstalas la app o borras sus datos, se pierden. Haz una copia cada domingo.')+'</p><div class="btns"><button class="btn" id="bkExp">Guardar copia</button><button class="btn sec" id="bkImp">Restaurar copia</button></div>';
   h+='<h2>Últimos movimientos</h2>';
   h+=movs.length?'<div class="list">'+movs.map(x=>'<div class="row" style="cursor:default"><div><div class="nm">'+esc(prodName(x.p))+'</div><div class="sub">'+ftime(x.ts)+' · '+TIPOS[x.t]+(x.motivo?" · "+esc(x.motivo):"")+(x.nota?" · "+esc(x.nota):"")+'</div></div><span class="num">'+(sign(x)>0?"+":"")+fmt(sign(x))+'</span></div>').join("")+'</div>':'<div class="empty">Sin movimientos todavía.</div>';
@@ -556,6 +560,235 @@ function editProv(id){const v=id?S.provs[id]:{nombre:"",contacto:"",tel:"",entre
     Object.keys(S.prod).forEach(k=>{const p=S.prod[k];if(marcados.has(k)&&p.prov!==pid)store.putProd(k,Object.assign({},p,{prov:pid}));else if(!marcados.has(k)&&p.prov===pid)store.putProd(k,Object.assign({},p,{prov:""}));});
     toast("Proveedor guardado");editProvs();});}
 
+/* ---------- Excel con formato (versión 0.5) ---------- */
+const XL=(()=>{
+  const enc=new TextEncoder();
+  const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+  const crc32=b=>{let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC[(c^b[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0;};
+  function zip(files){const parts=[],cent=[];let off=0;
+    files.forEach(f=>{const name=enc.encode(f.name),data=typeof f.data==="string"?enc.encode(f.data):f.data,crc=crc32(data);
+      const h=new DataView(new ArrayBuffer(30));h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(8,0,true);h.setUint32(14,crc,true);h.setUint32(18,data.length,true);h.setUint32(22,data.length,true);h.setUint16(26,name.length,true);
+      parts.push(new Uint8Array(h.buffer),name,data);
+      const c=new DataView(new ArrayBuffer(46));c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint32(16,crc,true);c.setUint32(20,data.length,true);c.setUint32(24,data.length,true);c.setUint16(28,name.length,true);c.setUint32(42,off,true);
+      cent.push(new Uint8Array(c.buffer),name);off+=30+name.length+data.length;});
+    const csize=cent.reduce((s,p)=>s+p.length,0);const e=new DataView(new ArrayBuffer(22));e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,csize,true);e.setUint32(16,off,true);
+    const all=parts.concat(cent,[new Uint8Array(e.buffer)]);const out=new Uint8Array(all.reduce((s,p)=>s+p.length,0));let p=0;all.forEach(a=>{out.set(a,p);p+=a.length;});return out;}
+  const x=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"");
+  const col=i=>{let s="";i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;};
+  const C={ink:"FF0B0B0A",gris:"FF6A675F",linea:"FFDEDBD2",crema:"FFF3F1EB",bad:"FFF6DFDB",warn:"FFF6ECD8",ok:"FFE4EFE6",blanco:"FFFFFFFF"};
+  function book(){const fonts=['<font><sz val="10"/><color rgb="FF1F1F1F"/><name val="Calibri"/><family val="2"/></font>'],fills=['<fill><patternFill patternType="none"/></fill>','<fill><patternFill patternType="gray125"/></fill>'],borders=['<border><left/><right/><top/><bottom/><diagonal/></border>'],xfs=['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'];
+    const memo={},fm={},fl={},bm={};
+    const font=(o)=>{const k=JSON.stringify(o);if(fm[k]!==undefined)return fm[k];fonts.push('<font>'+(o.b?'<b/>':'')+(o.i?'<i/>':'')+'<sz val="'+(o.sz||10)+'"/><color rgb="'+(o.c||"FF1F1F1F")+'"/><name val="Calibri"/><family val="2"/></font>');return fm[k]=fonts.length-1;};
+    const fill=(c)=>{if(!c)return 0;if(fl[c]!==undefined)return fl[c];fills.push('<fill><patternFill patternType="solid"><fgColor rgb="'+c+'"/><bgColor indexed="64"/></patternFill></fill>');return fl[c]=fills.length-1;};
+    const border=(k)=>{if(!k)return 0;if(bm[k]!==undefined)return bm[k];const t='<left style="thin"><color rgb="'+C.linea+'"/></left><right style="thin"><color rgb="'+C.linea+'"/></right>';
+      borders.push(k==="total"?'<border><left/><right/><top style="medium"><color rgb="'+C.ink+'"/></top><bottom style="thin"><color rgb="'+C.ink+'"/></bottom><diagonal/></border>':k==="head"?'<border><left/><right/><top/><bottom style="medium"><color rgb="'+C.ink+'"/></bottom><diagonal/></border>':'<border>'+t+'<top style="thin"><color rgb="'+C.linea+'"/></top><bottom style="thin"><color rgb="'+C.linea+'"/></bottom><diagonal/></border>');return bm[k]=borders.length-1;};
+    const FMT={int:164,money:165,pct:166,dec:167,text:0,date:168};
+    const st=(o)=>{const k=JSON.stringify(o);if(memo[k]!==undefined)return memo[k];
+      const al=(o.h||o.wrap||o.v)?'<alignment'+(o.h?' horizontal="'+o.h+'"':'')+' vertical="'+(o.v||"center")+'"'+(o.wrap?' wrapText="1"':'')+'/>':'<alignment vertical="center"/>';
+      xfs.push('<xf numFmtId="'+(FMT[o.t||"text"]||0)+'" fontId="'+font(o.font||{})+'" fillId="'+fill(o.fill)+'" borderId="'+border(o.border)+'" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">'+al+'</xf>');return memo[k]=xfs.length-1;};
+    const sheets=[];
+    function sheet(name,opt){const s={name:name.slice(0,31),rows:[],merges:[],cols:opt.cols||[],freeze:opt.freeze||0,filter:null,heights:{},landscape:opt.landscape!==false,printTitle:null};sheets.push(s);return s;}
+    function cellXml(r,c,cell){if(cell==null)return"";const ref=col(c)+(r+1);
+      if(typeof cell!=="object")cell={v:cell};const s=cell.s||0;
+      if(cell.f)return'<c r="'+ref+'" s="'+s+'"><f>'+x(cell.f)+'</f>'+(typeof cell.v==="number"?'<v>'+cell.v+'</v>':'')+'</c>';
+      if(cell.v===null||cell.v===undefined||cell.v==="")return s?'<c r="'+ref+'" s="'+s+'"/>':"";
+      if(typeof cell.v==="number"&&isFinite(cell.v))return'<c r="'+ref+'" s="'+s+'"><v>'+cell.v+'</v></c>';
+      return'<c r="'+ref+'" s="'+s+'" t="inlineStr"><is><t xml:space="preserve">'+x(cell.v)+'</t></is></c>';}
+    function sheetXml(s,i){const n=Math.max(1,s.cols.length);
+      return'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'+
+      '<sheetViews><sheetView workbookViewId="0" showGridLines="0"'+(i===0?' tabSelected="1"':'')+'>'+(s.freeze?'<pane ySplit="'+s.freeze+'" topLeftCell="A'+(s.freeze+1)+'" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A'+(s.freeze+1)+'" sqref="A'+(s.freeze+1)+'"/>':'')+'</sheetView></sheetViews><sheetFormatPr defaultRowHeight="18" customHeight="1"/>'+
+      (s.cols.length?'<cols>'+s.cols.map((w,j)=>'<col min="'+(j+1)+'" max="'+(j+1)+'" width="'+w+'" customWidth="1"/>').join("")+'</cols>':'')+
+      '<sheetData>'+s.rows.map((row,r)=>row?'<row r="'+(r+1)+'"'+(s.heights[r]?' ht="'+s.heights[r]+'" customHeight="1"':'')+'>'+row.map((c,j)=>cellXml(r,j,c)).join("")+'</row>':'').join("")+'</sheetData>'+
+      (s.filter?'<autoFilter ref="'+s.filter+'"/>':'')+(s.merges.length?'<mergeCells count="'+s.merges.length+'">'+s.merges.map(m=>'<mergeCell ref="'+m+'"/>').join("")+'</mergeCells>':'')+
+      '<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/><pageSetup paperSize="1" orientation="'+(s.landscape?"landscape":"portrait")+'" fitToWidth="1" fitToHeight="0"/>'+
+      '<headerFooter><oddFooter>&amp;L&amp;8Café Capiro · Inventario Capiro&amp;R&amp;8Página &amp;P de &amp;N</oddFooter></headerFooter></worksheet>';}
+    function build(){const wb='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets>'+sheets.map((s,i)=>'<sheet name="'+x(s.name)+'" sheetId="'+(i+1)+'" r:id="rId'+(i+1)+'"/>').join("")+'</sheets>'+
+        (sheets.some(s=>s.filter||s.printTitle)?'<definedNames>'+sheets.map((s,i)=>(s.filter?'<definedName name="_xlnm._FilterDatabase" localSheetId="'+i+'" hidden="1">\''+x(s.name)+'\'!'+s.filter.replace(/([A-Z]+)(\d+)/g,"$$$1$$$2")+'</definedName>':'')+(s.printTitle?'<definedName name="_xlnm.Print_Titles" localSheetId="'+i+'">\''+x(s.name)+'\'!$'+s.printTitle+':$'+s.printTitle+'</definedName>':'')).join("")+'</definedNames>':'')+'</workbook>';
+      const styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="5"><numFmt numFmtId="164" formatCode="#,##0"/><numFmt numFmtId="165" formatCode="&quot;$&quot;\\ #,##0"/><numFmt numFmtId="166" formatCode="0%"/><numFmt numFmtId="167" formatCode="#,##0.0"/><numFmt numFmtId="168" formatCode="dd/mm/yyyy"/></numFmts>'+
+        '<fonts count="'+fonts.length+'">'+fonts.join("")+'</fonts><fills count="'+fills.length+'">'+fills.join("")+'</fills><borders count="'+borders.length+'">'+borders.join("")+'</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="'+xfs.length+'">'+xfs.join("")+'</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+      const files=[{name:"[Content_Types].xml",data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+sheets.map((s,i)=>'<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join("")+'<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>'},
+        {name:"_rels/.rels",data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>'},
+        {name:"docProps/core.xml",data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>'+x(sheets[0]?sheets[0].title||sheets[0].name:"Reporte")+'</dc:title><dc:creator>Inventario Capiro</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">'+new Date().toISOString().slice(0,19)+'Z</dcterms:created></cp:coreProperties>'},
+        {name:"xl/workbook.xml",data:wb},
+        {name:"xl/_rels/workbook.xml.rels",data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+sheets.map((s,i)=>'<Relationship Id="rId'+(i+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>').join("")+'<Relationship Id="rId'+(sheets.length+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
+        {name:"xl/styles.xml",data:styles}].concat(sheets.map((s,i)=>({name:"xl/worksheets/sheet"+(i+1)+".xml",data:sheetXml(s,i)})));
+      return zip(files);}
+    return{st,sheet,build,col,C};}
+  /* Hoja de reporte estándar: título, subtítulo, bloques de resumen y una tabla con totales */
+  function reportSheet(b,name,o){const s=b.sheet(name,{cols:o.cols.map(c=>c.w||14),landscape:o.cols.length>5});s.title=o.title;const n=o.cols.length;const last=b.col(n-1);
+    const T=b.st({font:{b:true,sz:16,c:b.C.ink},v:"bottom"}),SUB=b.st({font:{sz:10,c:b.C.gris}}),SEC=b.st({font:{b:true,sz:11,c:b.C.ink},border:"head"});
+    s.rows.push([{v:"CAFÉ CAPIRO",s:b.st({font:{b:true,sz:9,c:b.C.gris}})}]);
+    s.rows.push([{v:o.title,s:T}]);s.heights[1]=26;s.merges.push("A2:"+last+"2");
+    s.rows.push([{v:o.sub||"",s:SUB}]);s.merges.push("A3:"+last+"3");
+    s.rows.push(null);
+    (o.kpis||[]).length&&(()=>{const L=b.st({font:{sz:9,c:b.C.gris},fill:b.C.crema,border:"cell"}),per=Math.min(4,o.kpis.length);
+      for(let i=0;i<o.kpis.length;i+=per){const lab=[],val=[];o.kpis.slice(i,i+per).forEach((k,j)=>{const span=Math.max(1,Math.floor(n/per));const c0=j*span;
+        lab[c0]={v:k.l,s:L};val[c0]={v:k.v,s:b.st({font:{b:true,sz:14,c:k.tone==="bad"?"FFA3322A":k.tone==="warn"?"FF8A5A0E":b.C.ink},t:k.t||"int",fill:b.C.crema,border:"cell",h:"left"})};
+        for(let q=1;q<span;q++){lab[c0+q]={v:"",s:L};val[c0+q]={v:"",s:b.st({fill:b.C.crema,border:"cell"})};}
+        if(span>1){const r=s.rows.length;s.merges.push(b.col(c0)+(r+1)+":"+b.col(c0+span-1)+(r+1));s.merges.push(b.col(c0)+(r+2)+":"+b.col(c0+span-1)+(r+2));}});
+        s.rows.push(lab);s.rows.push(val);s.heights[s.rows.length-1]=24;}
+      s.rows.push(null);})();
+    (o.blocks||[]).forEach(bl=>{s.rows.push([{v:bl.title,s:SEC}].concat(Array(n-1).fill({v:"",s:SEC})));
+      bl.rows.forEach(rw=>{const tone=rw.tone;const fillc=tone==="bad"?b.C.bad:tone==="warn"?b.C.warn:tone==="ok"?b.C.ok:null;const r=s.rows.length;
+        s.rows.push([{v:rw.a,s:b.st({font:{b:true},fill:fillc,border:"cell",wrap:true,v:"top"})},{v:rw.b,s:b.st({fill:fillc,border:"cell",wrap:true,v:"top"})}].concat(Array(n-2).fill({v:"",s:b.st({fill:fillc,border:"cell"})})));
+        s.merges.push("B"+(r+1)+":"+last+(r+1));s.heights[r]=rw.h||32;});
+      s.rows.push(null);});
+    if(o.tableTitle){s.rows.push([{v:o.tableTitle,s:SEC}].concat(Array(n-1).fill({v:"",s:SEC})));}
+    const H=b.st({font:{b:true,c:b.C.blanco,sz:10},fill:b.C.ink,h:"center",wrap:true});
+    const hr=s.rows.length;s.rows.push(o.cols.map(c=>({v:c.h,s:H})));s.heights[hr]=30;s.freeze=hr+1;s.printTitle=String(hr+1);
+    const first=hr+2;let band=false,lastGroup=null;
+    o.rows.forEach(rw=>{if(rw.group!==undefined){s.rows.push([{v:rw.group,s:b.st({font:{b:true,c:b.C.ink},fill:"FFE9E6DD",border:"cell"})}].concat(Array(n-1).fill({v:"",s:b.st({fill:"FFE9E6DD",border:"cell"})})));const r=s.rows.length;s.merges.push("A"+r+":"+last+r);band=false;return;}
+      const fillc=rw.tone==="bad"?b.C.bad:rw.tone==="warn"?b.C.warn:rw.tone==="ok"?b.C.ok:(band?"FFFAF9F6":null);band=!band;
+      s.rows.push(o.cols.map((c,j)=>({v:rw.v[j]===undefined?null:rw.v[j],s:b.st({t:c.t||"text",fill:fillc,border:"cell",h:c.t&&c.t!=="text"?"right":(c.center?"center":undefined),wrap:!!c.wrap,font:j===0&&c.bold?{b:true}:{}})})));});
+    const lastData=s.rows.length;
+    if(o.rows.length)s.filter="A"+(hr+1)+":"+last+lastData;
+    if(o.totals&&lastData>=first){const TL=b.st({font:{b:true},border:"total"});s.rows.push(o.cols.map((c,j)=>{if(j===0)return{v:o.totalsLabel||"Total",s:TL};const k=o.totals[j];if(!k)return{v:"",s:TL};
+      const L=b.col(j);const vals=o.rows.filter(r=>r.v).map(r=>Number(r.v[j])).filter(v=>isFinite(v));const sum=vals.reduce((a,v)=>a+v,0);
+      return{f:(k==="avg"?"AVERAGE(":"SUBTOTAL(9,")+L+first+":"+L+lastData+")",v:k==="avg"?(vals.length?sum/vals.length:0):sum,s:b.st({font:{b:true},border:"total",t:c.t||"int",h:"right"})};}));}
+    if(o.note){s.rows.push(null);s.rows.push([{v:o.note,s:b.st({font:{i:true,sz:9,c:b.C.gris},wrap:true,v:"top"})}]);const r=s.rows.length;s.merges.push("A"+r+":"+last+r);s.heights[r-1]=Math.min(90,18*Math.ceil(o.note.length/(n*14)));}
+    return s;}
+  return{book,reportSheet};})();
+function fechaLarga(ts){const d=new Date(ts);const m=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];return d.getDate()+" de "+m[d.getMonth()]+" de "+d.getFullYear()+", "+pad(d.getHours())+":"+pad(d.getMinutes());}
+async function saveBinary(name,bytes,mime){
+  if(window.AndroidApp&&window.AndroidApp.saveFileB64){try{let bin="";for(let i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+0x8000));if(window.AndroidApp.saveFileB64(name,btoa(bin),mime)==="ok"){toast("Guardado en Descargas: "+name);return;}}catch(e){}}
+  try{const dl=window.claude&&window.claude.use?await window.claude.use("downloads"):null;if(dl){await dl.save({filename:name,data:new Blob([bytes],{type:mime})});toast("Archivo listo");return;}}catch(e){if(e&&e.code==="declined")return;}
+  try{const u=URL.createObjectURL(new Blob([bytes],{type:mime}));const a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);toast("Descargando "+name);}catch(e){toast("No se pudo guardar el archivo en este dispositivo.");}}
+const XLSX_MIME="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+function catOrden(pid){const c=(S.prod[pid]||{}).cat;const i=CATS.indexOf(c);return i<0?99:i;}
+function reporteCuadre(id){const c=Object.assign({id},S.cuadres[id]);const filas=(c.filas||[]).map(normFila);const dg=diagnostico(c.filas||[]);const ini=filas.length&&filas.every(x=>x.salio==null);
+  const cruzados=new Set();dg.cruces.forEach(([a,b])=>{cruzados.add(a.p);cruzados.add(b.p);});
+  const estado=x=>{if(typeof x.difS!=="number")return["Sin dato de Loggro",null];if(cruzados.has(x.p))return["Posible cruce de códigos","bad"];if(Math.abs(x.difS)<1e-9)return["Cuadra","ok"];if(x.difS>0)return["Faltante: Loggro tiene más","bad"];if(Number(x.lstock)===0)return["Sin inventario en Loggro","warn"];return["Compras sin cargar en Loggro","warn"];};
+  const costo=p=>Number((S.prod[p]||{}).costo)||0;
+  const sorted=filas.slice().sort((a,b)=>catOrden(a.p)-catOrden(b.p)||prodName(a.p).localeCompare(prodName(b.p)));
+  const rows=[];let g=null;sorted.forEach(x=>{const cat=(S.prod[x.p]||{}).cat||"Otros";if(cat!==g){rows.push({group:cat});g=cat;}const [e,t]=estado(x);const dif=typeof x.difS==="number"?-x.difS:null;
+    rows.push({tone:t,v:[prodName(x.p),x.p,x.fisico,x.lstock,dif,ini?null:x.salio,x.lventas,ini?null:x.difV,costo(x.p)||null,dif!==null&&costo(x.p)?dif*costo(x.p):null,e]});});
+  const masR=dg.mas.filter(x=>!cruzados.has(x.p));const valFalt=masR.reduce((s,x)=>s+x.difS*costo(x.p),0);const unFalt=masR.reduce((s,x)=>s+x.difS,0);const hh=t=>13*Math.ceil(t.length/135)+8;
+  const b=XL.book();
+  const blocks=[];const L=arr=>arr.slice().sort((a,b)=>Math.abs(b.difS)-Math.abs(a.difS)).map(x=>prodName(x.p)+" ("+(x.difS>0?"+":"")+fmt(x.difS)+")").join(", ");
+  const det=[];
+  if(dg.cruces.length)det.push({tone:"bad",a:"Posible cruce de códigos",b:dg.cruces.map(([a,b])=>prodName(a.p)+" "+(a.difS>0?"+":"")+fmt(a.difS)+" y "+prodName(b.p)+" "+(b.difS>0?"+":"")+fmt(b.difS)).join("; ")+". Diferencias iguales y opuestas: se vende un producto y se registra el otro. Revisar que cada botón de venta descuente su propio código.",h:0});
+  const mas=dg.mas.filter(x=>!cruzados.has(x.p)),menos=dg.menos.filter(x=>!cruzados.has(x.p));
+  if(mas.length)det.push({tone:"bad",a:"Faltantes: Loggro registra más de lo que hay",b:mas.length+" productos, "+fmt(mas.reduce((s,x)=>s+x.difS,0))+" unidades. "+L(mas)+". Posibles ventas sin registrar, mermas sin descargar o pérdidas.",h:0});
+  if(menos.length)det.push({tone:"warn",a:"Loggro registra menos de lo que hay",b:menos.length+" productos, "+fmt(Math.abs(menos.reduce((s,x)=>s+x.difS,0)))+" unidades. "+L(menos)+". Compras que no se cargan en Loggro o descuentos dobles por receta.",h:0});
+  if(dg.sinCtl.length)det.push({tone:"warn",a:"Sin inventario en Loggro",b:dg.sinCtl.length+" productos con existencia física y cero en Loggro: "+dg.sinCtl.map(x=>prodName(x.p)+" ("+fmt(x.fisico)+")").join(", ")+". Activar control de inventario y cargar sus compras.",h:0});
+  if(dg.ok.length)det.push({tone:"ok",a:"Cuadran exacto",b:dg.ok.length+" productos coinciden entre el conteo físico y Loggro.",h:0});
+  det.forEach(d=>{d.h=Math.max(22,hh(d.b));});
+  if(det.length)blocks.push({title:"Hallazgos",rows:det});
+  XL.reportSheet(b,"Cuadre",{title:"Cuadre de inventario frente a Loggro",sub:fechaLarga(c.ts)+(c.nota?" · "+c.nota:"")+(ini?" · Conteo inicial: fija el punto de partida":""),
+    kpis:[{l:"Productos contados",v:filas.length},{l:"Cuadran exacto",v:dg.total?dg.ok.length/dg.total:0,t:"pct",tone:dg.total&&dg.ok.length/dg.total<0.8?"warn":null},{l:"Faltantes (unidades)",v:unFalt,tone:unFalt>0?"bad":null},{l:"Faltante valorizado",v:valFalt,t:"money",tone:valFalt>0?"bad":null}],
+    blocks,tableTitle:"Detalle por producto",
+    cols:[{h:"Producto",w:32,bold:true},{h:"Código",w:9,center:true},{h:"Físico",w:9,t:"int"},{h:"Stock Loggro",w:10,t:"int"},{h:"Diferencia",w:11,t:"int"},{h:"Salió",w:9,t:"int"},{h:"Ventas Loggro",w:10,t:"int"},{h:"Ventas sin registrar",w:11,t:"int"},{h:"Costo unitario",w:12,t:"money"},{h:"Diferencia valorizada",w:14,t:"money"},{h:"Estado",w:28,wrap:true}],
+    rows,totals:{2:"sum",3:"sum",4:"sum",9:"sum"},
+    note:"Diferencia = físico − Loggro. Negativa: Loggro tiene más unidades que el conteo físico (faltante). Diferencia positiva: hay más producto del que Loggro registra. "+(ini?"En el conteo inicial «Salió» y «Ventas sin registrar» quedan vacíos; se calculan desde el siguiente cuadre. ":"")+"Los valores en pesos usan el costo de compra registrado en la app; los productos sin costo aparecen sin valorizar."});
+  saveBinary("Cuadre "+(c.fecha||today())+".xlsx",b.build(),XLSX_MIME);}
+function reporteStock(){const {res}=computeAll();const ids=Object.keys(res).sort((a,b)=>catOrden(a)-catOrden(b)||S.prod[a].nombre.localeCompare(S.prod[b].nombre));
+  const rows=[];let g=null,valor=0,bajos=0,agot=0;ids.forEach(id=>{const p=S.prod[id],f=res[id];if(p.cat!==g){rows.push({group:p.cat});g=p.cat;}const st=Math.max(0,f.stock),v=st*(Number(p.costo)||0);valor+=v;
+    let e="OK",t=null;if(f.stock<=0){e="Agotado";t="bad";agot++;}else if(Number(p.min)>0&&f.stock<=Number(p.min)){e="Bajo el mínimo";t="warn";bajos++;}else if(!(Number(p.min)>0))e="Sin mínimo";
+    const lot=f.lots&&f.lots[0];rows.push({tone:t,v:[p.nombre,id,p.unidad||"und",st,Number(p.min)||null,Number(p.ideal)||null,Number(p.costo)||null,v||null,lot&&lot.vence?lot.vence.split("-").reverse().join("/"):"",f.counted?ftime(f.since):"Sin conteo",e]});});
+  const b=XL.book();XL.reportSheet(b,"Inventario",{title:"Inventario actual",sub:"Corte al "+fechaLarga(Date.now())+" · existencias según la app (último conteo + entradas − salidas)",
+    kpis:[{l:"Productos",v:ids.length},{l:"Valor del inventario",v:valor,t:"money"},{l:"Bajo el mínimo",v:bajos,tone:bajos?"warn":null},{l:"Agotados",v:agot,tone:agot?"bad":null}],
+    cols:[{h:"Producto",w:34,bold:true},{h:"Código",w:9,center:true},{h:"Unidad",w:8,center:true},{h:"Existencia",w:10,t:"int"},{h:"Mínimo",w:9,t:"int"},{h:"Ideal",w:9,t:"int"},{h:"Costo unitario",w:12,t:"money"},{h:"Valor",w:13,t:"money"},{h:"Próximo vencimiento",w:12,center:true},{h:"Último conteo",w:13,center:true},{h:"Estado",w:15}],
+    rows,totals:{7:"sum"}});
+  saveBinary("Inventario "+today()+".xlsx",b.build(),XLSX_MIME);}
+function reporteMovimientos(){const ms=allMovs().slice().reverse();const b=XL.book();const tot={entrada:0,merma:0,consumo:0};let mermaV=0;
+  const rows=ms.map(m=>{if(tot[m.t]!==undefined)tot[m.t]+=Number(m.q)||0;const c=Number((S.prod[m.p]||{}).costo)||0;const v=sign(m)*c;if(m.t==="merma")mermaV+=Math.abs(v);
+    return{tone:m.t==="merma"?"bad":null,v:[ftime(m.ts),TIPOS[m.t],prodName(m.p),m.p,sign(m),c?v:null,m.lote||"",m.vence?m.vence.split("-").reverse().join("/"):"",m.motivo||"",m.nota||""]};});
+  XL.reportSheet(b,"Movimientos",{title:"Registro de movimientos",sub:"Generado el "+fechaLarga(Date.now())+" · más recientes primero",
+    kpis:[{l:"Movimientos",v:ms.length},{l:"Unidades recibidas",v:tot.entrada},{l:"Unidades de merma",v:tot.merma,tone:tot.merma?"bad":null},{l:"Merma valorizada",v:mermaV,t:"money",tone:mermaV?"bad":null}],
+    cols:[{h:"Fecha",w:13,center:true},{h:"Tipo",w:10},{h:"Producto",w:30,bold:false},{h:"Código",w:9,center:true},{h:"Cantidad",w:9,t:"dec"},{h:"Valor",w:12,t:"money"},{h:"Lote",w:10},{h:"Vence",w:11,center:true},{h:"Motivo",w:16},{h:"Nota",w:24,wrap:true}],
+    rows,totals:{5:"sum"}});
+  saveBinary("Movimientos "+today()+".xlsx",b.build(),XLSX_MIME);}
+function reporteFichas(){const cs=comboList().filter(c=>c.inicio);if(!cs.length){toast("Ningún combo tiene prueba iniciada todavía.");return;}
+  const rows=[];cs.forEach(c=>{const f=ficha(c);rows.push({group:c.nombre+(f.dec?" · "+(f.done?"Decisión: ":"Lectura provisional: ")+f.dec:"")});
+    rows.push({v:["Semana base",addDays(c.inicio,-7).split("-").reverse().join("/")+" – "+addDays(c.inicio,-1).split("-").reverse().join("/"),f.B.v,f.B.m,f.B.t]});
+    f.weeks.forEach(w=>rows.push({tone:w.v>f.B.v?"ok":null,v:["Semana "+w.n+(w.parcial?" (en curso)":""),w.a.split("-").reverse().join("/")+" – "+w.e.split("-").reverse().join("/"),w.v,w.m,w.t]}));});
+  const b=XL.book();XL.reportSheet(b,"Combos",{title:"Prueba de combos",sub:"Generado el "+fechaLarga(Date.now())+" · regla: se mantiene el combo que mejora 2 de 3 números frente a su semana base",
+    kpis:[{l:"Combos en prueba",v:cs.filter(c=>c.activo).length},{l:"Para mantener",v:cs.filter(c=>{const f=ficha(c);return f.done&&f.dec==="Mantener";}).length},{l:"Para ajustar o retirar",v:cs.filter(c=>{const f=ficha(c);return f.done&&f.dec!=="Mantener";}).length}],
+    cols:[{h:"Periodo",w:22,bold:true},{h:"Fechas",w:24,center:true},{h:"Combos vendidos",w:12,t:"int"},{h:"Merma de productos rotativos",w:15,t:"money"},{h:"Ticket promedio",w:14,t:"money"}],rows,
+    note:"Combos vendidos y ticket promedio deben subir; la merma de los productos que el combo rota debe bajar."});
+  saveBinary("Prueba de combos "+today()+".xlsx",b.build(),XLSX_MIME);}
+function reporteCostos(){const b=XL.book();const tone=(c,p)=>!(p>0)||!(c>0)?null:c/p<=0.30?"ok":c/p<=0.35?"warn":"bad";
+  const rec=Object.keys(S.recetas).filter(k=>S.recetas[k].tipo!=="base").sort().map(k=>{const r=S.recetas[k];const x=costoReceta(r);const pr=Number(r.precio)||0;return{tone:x.faltan.length?null:tone(x.c,pr),v:[r.nombre,k,x.faltan.length?null:x.c,pr||null,pr&&!x.faltan.length?pr-x.c:null,pr&&!x.faltan.length?x.c/pr:null,x.faltan.length?"Falta costo: "+x.faltan.map(prodName).join(", "):""]};});
+  const rev=Object.keys(S.prod).filter(k=>REVENTA.includes(S.prod[k].cat)&&S.prod[k].activo!==false).sort((a,b)=>catOrden(a)-catOrden(b)||S.prod[a].nombre.localeCompare(S.prod[b].nombre));
+  const rrows=[];let g=null;rev.forEach(k=>{const p=S.prod[k];if(p.cat!==g){rrows.push({group:p.cat});g=p.cat;}const c=Number(p.costo)||0,pr=Number(p.precio)||0;rrows.push({tone:tone(c,pr),v:[p.nombre,k,c||null,pr||null,c&&pr?pr-c:null,c&&pr?c/pr:null,!c?"Falta costo":!pr?"Falta precio":""]});});
+  const cb=comboList().map(c=>{const x=costoCombo(c);const pr=Number(c.precio)||0;return{tone:x.faltan.length?null:tone(x.c,pr),v:[c.nombre,c.id,x.faltan.length?null:x.c,pr||null,pr&&!x.faltan.length?pr-x.c:null,pr&&!x.faltan.length?x.c/pr:null,x.sinPrecio?"Faltan precios de piezas":"Precio sugerido "+cop(x.sugerido)]};});
+  const cols=[{h:"Producto",w:32,bold:true},{h:"Código",w:9,center:true},{h:"Costo",w:12,t:"money"},{h:"Precio de venta",w:13,t:"money"},{h:"Margen",w:12,t:"money"},{h:"Costo %",w:9,t:"pct"},{h:"Observación",w:34,wrap:true}];
+  const nota="Costo % = costo ÷ precio de venta. Verde hasta 30 %, ámbar de 30 a 35 %, rojo por encima de 35 %.";
+  XL.reportSheet(b,"Bebidas",{title:"Costos y margen · Bebidas y postres",sub:"Generado el "+fechaLarga(Date.now())+" · recetas del libro maestro",cols,rows:rec,note:nota});
+  XL.reportSheet(b,"Reventa",{title:"Costos y margen · Reventa",sub:"Productos que se venden como llegan",cols,rows:rrows,note:nota});
+  XL.reportSheet(b,"Combos",{title:"Costos y margen · Combos",sub:"Precio sugerido = suma de precios individuales × 0,90, redondeado a $500",cols,rows:cb,note:nota});
+  saveBinary("Costos y margen "+today()+".xlsx",b.build(),XLSX_MIME);}
+
+/* ---------- Importar reporte de Loggro (versión 0.5) ---------- */
+const normTxt=t=>String(t||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9 ]+/g," ").replace(/\s+/g," ").trim();
+function parseNum(v){if(typeof v==="number")return v;let t=String(v||"").replace(/[\s$]/g,"");if(!t)return null;const neg=/^\(.*\)$/.test(t)||t.startsWith("-");t=t.replace(/[()\-]/g,"");
+  if(t.includes(",")&&t.includes(".")){if(t.lastIndexOf(",")>t.lastIndexOf("."))t=t.replace(/\./g,"").replace(",",".");else t=t.replace(/,/g,"");}
+  else if(t.includes(",")){t=/^\d{1,3}(,\d{3})+$/.test(t)?t.replace(/,/g,""):t.replace(",",".");}
+  else if(/^\d{1,3}(\.\d{3})+$/.test(t))t=t.replace(/\./g,"");
+  const n=Number(t);return isFinite(n)?(neg?-n:n):null;}
+function parseCSV(txt){txt=txt.replace(/^﻿/,"");const first=txt.split(/\r?\n/).slice(0,5).join("\n");const cnt=d=>(first.match(new RegExp(d==="\t"?"\t":"\\"+d,"g"))||[]).length;
+  const del=[";",",","\t"].sort((a,b)=>cnt(b)-cnt(a))[0];const rows=[];let row=[],cur="",q=false;
+  for(let i=0;i<txt.length;i++){const ch=txt[i];if(q){if(ch==='"'){if(txt[i+1]==='"'){cur+='"';i++;}else q=false;}else cur+=ch;}
+    else if(ch==='"')q=true;else if(ch===del){row.push(cur);cur="";}else if(ch==="\n"||ch==="\r"){if(ch==="\r"&&txt[i+1]==="\n")i++;row.push(cur);rows.push(row);row=[];cur="";}else cur+=ch;}
+  if(cur!==""||row.length){row.push(cur);rows.push(row);}return rows.filter(r=>r.some(c=>String(c).trim()!==""));}
+async function unzipXlsx(buf){const u8=new Uint8Array(buf),dv=new DataView(buf);let e=-1;for(let i=u8.length-22;i>=Math.max(0,u8.length-66000);i--){if(dv.getUint32(i,true)===0x06054b50){e=i;break;}}
+  if(e<0)throw new Error("zip");const n=dv.getUint16(e+10,true);let p=dv.getUint32(e+16,true);const files={};const dec=new TextDecoder();
+  for(let k=0;k<n;k++){const m=dv.getUint16(p+10,true),cs=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),xl=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),lo=dv.getUint32(p+42,true);
+    files[dec.decode(u8.subarray(p+46,p+46+nl))]={m,cs,lo};p+=46+nl+xl+cl;}
+  return async name=>{const f=files[name];if(!f)return null;const lnl=dv.getUint16(f.lo+26,true),lxl=dv.getUint16(f.lo+28,true);const data=u8.subarray(f.lo+30+lnl+lxl,f.lo+30+lnl+lxl+f.cs);
+    if(f.m===0)return dec.decode(data);if(typeof DecompressionStream==="undefined")throw new Error("inflate");
+    const ab=await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer();return dec.decode(ab);};}
+async function parseXlsx(buf){const get=await unzipXlsx(buf);const P=new DOMParser();const X=s=>P.parseFromString(s,"application/xml");
+  const ss=[];const sst=await get("xl/sharedStrings.xml");if(sst){X(sst).querySelectorAll("si").forEach(si=>ss.push([...si.getElementsByTagName("t")].map(t=>t.textContent).join("")));}
+  let path="xl/worksheets/sheet1.xml";const wb=await get("xl/workbook.xml"),rels=await get("xl/_rels/workbook.xml.rels");
+  if(wb&&rels){const sh=X(wb).getElementsByTagName("sheet")[0];const rid=sh&&(sh.getAttribute("r:id")||sh.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships","id"));const rel=[...X(rels).getElementsByTagName("Relationship")].find(r=>r.getAttribute("Id")===rid);if(rel){const t=rel.getAttribute("Target");path=t.startsWith("/")?t.slice(1):"xl/"+t.replace(/^\.\//,"");}}
+  const sx=await get(path);if(!sx)throw new Error("hoja");const rows=[];
+  X(sx).querySelectorAll("sheetData row").forEach(r=>{const row=[];r.querySelectorAll("c").forEach(c=>{const ref=c.getAttribute("r")||"";const L=ref.replace(/\d+/g,"");let ci=0;for(const ch of L)ci=ci*26+(ch.charCodeAt(0)-64);ci--;
+    const t=c.getAttribute("t");const v=c.getElementsByTagName("v")[0];let val="";if(t==="s")val=ss[Number(v&&v.textContent)]||"";else if(t==="inlineStr")val=[...c.getElementsByTagName("t")].map(x=>x.textContent).join("");else val=v?v.textContent:"";
+    row[ci<0?row.length:ci]=val;});rows.push(Array.from(row,x=>x===undefined?"":x));});
+  return rows.filter(r=>r.some(c=>String(c).trim()!==""));}
+const KW={nombre:["producto","nombre","descripcion","articulo","item","plato"],codigo:["codigo","referencia","ref","sku","cod"],cant:["cantidad vendida","cant vendida","vendid","cantidad","cant","unidades","und"],stock:["stock","existencia","saldo","disponible","inventario actual","cantidad actual","inventario"]};
+function detectar(rows){let hi=0,best=-1;rows.slice(0,15).forEach((r,i)=>{const sc=r.filter(c=>{const n=normTxt(c);return n&&Object.values(KW).some(ks=>ks.some(k=>n.includes(k)));}).length;if(sc>best){best=sc;hi=i;}});
+  const head=rows[hi].map(normTxt);const find=(ks,ex)=>{for(const k of ks){const i=head.findIndex((h,j)=>h&&h.includes(k)&&!(ex||[]).includes(j));if(i>=0)return i;}return -1;};
+  const nombre=find(KW.nombre),codigo=find(KW.codigo,[nombre]),stock=find(KW.stock,[nombre,codigo]),cant=find(KW.cant,[nombre,codigo,stock]);
+  return{hi,nombre,codigo,cant,stock,tipo:stock>=0&&cant<0?"lstock":"lventas"};}
+function similar(a,b){const A=new Set(normTxt(a).split(" ").filter(w=>w.length>1)),B=new Set(normTxt(b).split(" ").filter(w=>w.length>1));if(!A.size||!B.size)return 0;let i=0;A.forEach(w=>{if(B.has(w))i++;});const j=i/Math.max(A.size,B.size);return i===B.size?Math.max(j,Math.min(0.9,0.55+0.1*B.size)):j;}
+function emparejar(nombre,codigo){const al=S.alias[normTxt(nombre)];if(al&&S.prod[al])return{p:al,por:"recordado"};
+  const ids=Object.keys(S.prod).filter(k=>S.prod[k].activo!==false);
+  if(codigo){const c=String(codigo).trim().toUpperCase();if(S.prod[c])return{p:c,por:"código"};}
+  const n=normTxt(nombre);const ex=ids.find(k=>normTxt(S.prod[k].nombre)===n);if(ex)return{p:ex,por:"nombre"};
+  let best=null,bs=0;ids.forEach(k=>{const s=similar(nombre,S.prod[k].nombre);if(s>bs){bs=s;best=k;}});return bs>=0.6?{p:best,por:"parecido"}:{p:"",por:""};}
+function abrirImport(){openSheet('<h2>Importar reporte de Loggro</h2><p class="hint">Descarga de Loggro el reporte de <b>ventas por producto</b> o de <b>inventario</b> en Excel (.xlsx) o CSV y elígelo aquí. La app llena las columnas de Loggro del cuadre; tú solo cuentas el físico.</p><div class="form"><label class="f" for="imFile">Archivo<input id="imFile" type="file" accept=".csv,.txt,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></label><div id="imMsg" class="hint"></div><button class="btn sec" id="imX">Cancelar</button></div>');
+  $("#imX").onclick=closeSheet;
+  $("#imFile").onchange=async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;$("#imMsg").textContent="Leyendo "+f.name+"…";
+    try{let rows;if(/\.xlsx$/i.test(f.name))rows=await parseXlsx(await f.arrayBuffer());else if(/\.xls$/i.test(f.name)){$("#imMsg").textContent="Ese archivo es Excel antiguo (.xls). Ábrelo y guárdalo como .xlsx o CSV, o expórtalo de Loggro en otro formato.";return;}else rows=parseCSV(await f.text());
+      if(!rows.length){$("#imMsg").textContent="El archivo está vacío.";return;}S.imp={rows,name:f.name,map:detectar(rows),man:{}};mapImport();}
+    catch(err){$("#imMsg").textContent=err.message==="inflate"?"Este teléfono no puede abrir Excel comprimido. Exporta el reporte como CSV.":"No pude leer el archivo. Prueba exportándolo como CSV o Excel (.xlsx).";}};}
+function filasImport(){const I=S.imp,m=I.map;const out=[];I.rows.slice(m.hi+1).forEach(r=>{const nombre=m.nombre>=0?String(r[m.nombre]||"").trim():"";const q=parseNum(m.tipo==="lstock"?r[m.stock]:r[m.cant]);
+  if(!nombre||q===null)return;if(/^(total|subtotal|totales)\b/.test(normTxt(nombre)))return;const k=normTxt(nombre);const em=I.man[k]!==undefined?{p:I.man[k],por:I.man[k]?"elegido":""}:emparejar(nombre,m.codigo>=0?r[m.codigo]:"");out.push({nombre,k,q,p:em.p,por:em.por});});return out;}
+function mapImport(){const I=S.imp,m=I.map,head=I.rows[m.hi]||[];
+  const opt=(sel)=>'<option value="-1">—</option>'+head.map((h,i)=>'<option value="'+i+'"'+(i===sel?" selected":"")+'>'+esc(h||("Columna "+(i+1)))+'</option>').join("");
+  const fs=filasImport();const agg={};fs.forEach(x=>{if(x.p)agg[x.p]=(agg[x.p]||0)+x.q;});const sin=fs.filter(x=>!x.p);
+  const prods=Object.keys(S.prod).filter(k=>S.prod[k].activo!==false).sort((a,b)=>S.prod[a].nombre.localeCompare(S.prod[b].nombre));
+  const popt=sel=>'<option value="">No está en la app (ignorar)</option>'+prods.map(k=>'<option value="'+esc(k)+'"'+(k===sel?" selected":"")+'>'+esc(S.prod[k].nombre)+'</option>').join("");
+  openSheet('<h2>Revisar importación</h2><p class="hint">'+esc(I.name)+' · '+fs.length+' filas con cantidad · encabezados en la fila '+(m.hi+1)+'</p><div class="form">'+
+    '<div class="seg" style="grid-template-columns:1fr 1fr" role="group" aria-label="Tipo de reporte"><button type="button" data-imt="lventas" aria-pressed="'+(m.tipo==="lventas")+'">Ventas Loggro</button><button type="button" data-imt="lstock" aria-pressed="'+(m.tipo==="lstock")+'">Stock Loggro</button></div>'+
+    '<div class="grid2"><label class="f" for="imN">Columna de producto<select id="imN">'+opt(m.nombre)+'</select></label><label class="f" for="imQ">Columna de '+(m.tipo==="lstock"?"existencia":"cantidad")+'<select id="imQ">'+opt(m.tipo==="lstock"?m.stock:m.cant)+'</select></label></div>'+
+    '<label class="f" for="imC">Columna de código (opcional)<select id="imC">'+opt(m.codigo)+'</select></label></div>'+
+    '<div class="stats"><div class="stat"><div class="lbl">Emparejadas</div><div class="n">'+(fs.length-sin.length)+'</div></div><div class="stat"><div class="lbl">Sin emparejar</div><div class="n">'+sin.length+'</div></div><div class="stat"><div class="lbl">Productos</div><div class="n">'+Object.keys(agg).length+'</div></div></div>'+
+    (fs.length?'<h3>Revisa el emparejamiento</h3><div class="list">'+fs.slice().sort((a,b)=>(a.p?1:0)-(b.p?1:0)||(a.por==="parecido"?0:1)-(b.por==="parecido"?0:1)).map(x=>'<div class="row" style="cursor:default;grid-template-columns:1fr;gap:4px"><div class="sub"><b style="color:var(--ink)">'+esc(x.nombre)+'</b> · '+fmt(x.q)+(x.por?' · por '+x.por:'')+'</div><select data-imk="'+esc(x.k)+'" aria-label="Producto de la app">'+popt(x.p)+'</select></div>').join("")+'</div>':'<div class="empty">No encontré filas con producto y cantidad. Cambia las columnas arriba.</div>')+
+    '<div class="btns" style="margin-top:12px"><button class="btn" id="imOk"'+(Object.keys(agg).length?"":" disabled")+'>Llenar cuadre con '+Object.keys(agg).length+' productos</button><button class="btn sec" id="imBack">Elegir otro archivo</button></div>');
+  document.querySelectorAll("[data-imt]").forEach(b=>b.onclick=()=>{m.tipo=b.dataset.imt;if(m.tipo==="lstock"&&m.stock<0)m.stock=m.cant;if(m.tipo==="lventas"&&m.cant<0)m.cant=m.stock;mapImport();});
+  $("#imN").onchange=e=>{m.nombre=Number(e.target.value);mapImport();};$("#imC").onchange=e=>{m.codigo=Number(e.target.value);mapImport();};
+  $("#imQ").onchange=e=>{const v=Number(e.target.value);if(m.tipo==="lstock")m.stock=v;else m.cant=v;mapImport();};
+  document.querySelectorAll("[data-imk]").forEach(s=>s.onchange=()=>{I.man[s.dataset.imk]=s.value;mapImport();});
+  $("#imBack").onclick=abrirImport;
+  $("#imOk").onclick=()=>{const fs2=filasImport();const tot={};fs2.forEach(x=>{if(x.p)tot[x.p]=(tot[x.p]||0)+x.q;});
+    Object.keys(tot).forEach(p=>{S.draft[p]=S.draft[p]||{};S.draft[p][m.tipo]=String(Math.round(tot[p]*100)/100);});
+    const nuevos=Object.assign({},S.alias);let cambio=false;fs2.forEach(x=>{if(x.p&&(x.por==="elegido"||x.por==="parecido")&&nuevos[x.k]!==x.p){nuevos[x.k]=x.p;cambio=true;}});
+    if(cambio)store.putAlias(nuevos);S.impInfo={n:Object.keys(tot).length,tipo:m.tipo,name:I.name};S.imp=null;closeSheet();S.view="cuadre";
+    const cats=Object.keys(tot).map(p=>(S.prod[p]||{}).cat);if(cats.length&&!cats.includes(S.ccat))S.ccat=cats[0];render();toast((m.tipo==="lstock"?"Stock":"Ventas")+" de Loggro cargado en "+Object.keys(tot).length+" productos");};}
+
 /* ---------- Hojas ---------- */
 function closeSheet(){$("#sheet").innerHTML="";}
 function openSheet(html){$("#sheet").innerHTML='<div class="sheet-bg" id="sbg"><div class="sheet" role="dialog" aria-modal="true">'+html+'</div></div>';
@@ -586,9 +819,9 @@ function showCuadre(id){const c=S.cuadres[id];if(!c)return;const r=cuadreSummary
   (ini?'<p class="hint">Conteo inicial: fija el punto de partida. «Salió» y «Ventas sin registrar» aparecen desde el siguiente cuadre; el error de stock de Loggro ya es comparable.</p>':'')+diagHtml(diagnostico(c.filas||[]))+
   '<div class="scroll" style="margin-top:12px"><table class="rep"><thead><tr><th>Producto</th><th>Esperado</th><th>Físico</th><th>Salió</th><th>Ventas Loggro</th><th>Sin registrar</th><th>Stock Loggro</th><th>Error Loggro</th></tr></thead><tbody>'+
   rows.map(x=>'<tr><td>'+esc(prodName(x.p))+'</td><td class="num">'+fmt(x.esperado)+'</td><td class="num">'+fmt(x.fisico)+'</td><td class="num">'+(x.salio==null?"—":fmt(x.salio))+'</td><td class="num">'+(x.lventas==null?"—":fmt(x.lventas))+'</td><td class="num '+cls(x.difV??null)+'">'+(x.difV==null?"—":fmt(x.difV))+'</td><td class="num">'+(x.lstock==null?"—":fmt(x.lstock))+'</td><td class="num '+cls(x.difS??null)+'">'+(x.difS==null?"—":fmt(x.difS))+'</td></tr>').join("")+
-  '</tbody></table></div><div class="btns" style="margin-top:12px"><button class="btn" id="cExp">Exportar CSV</button><button class="btn sec" id="cClose">Cerrar</button><button class="btn danger" id="cDel">Borrar</button></div><div id="cConf"></div>');
+  '</tbody></table></div><div class="btns" style="margin-top:12px"><button class="btn" id="cExp">Exportar Excel</button><button class="btn sec" id="cClose">Cerrar</button><button class="btn danger" id="cDel">Borrar</button></div><div id="cConf"></div>');
   $("#cClose").onclick=closeSheet;
-  $("#cExp").onclick=()=>exportCSV("cuadre-"+id+".csv",[["Producto","Código","Esperado app","Físico","Salió calculado","Ventas Loggro","Ventas sin registrar","Stock Loggro","Error stock Loggro","Costo"]].concat(rows.map(x=>[prodName(x.p),x.p,x.esperado,x.fisico,x.salio,x.lventas,x.difV,x.lstock,x.difS,(S.prod[x.p]||{}).costo||0])));
+  $("#cExp").onclick=()=>reporteCuadre(id);
   $("#cDel").onclick=()=>{$("#cConf").innerHTML='<p class="hint">Borrar este cuadre cambia el punto de partida de sus productos.</p><button class="btn danger" id="cDelOk">Sí, borrar</button>';$("#cDelOk").onclick=()=>{store.delCuadre(id);closeSheet();toast("Cuadre borrado");};};
 }
 function exportCSV(name,rows){const csv="\ufeff"+rows.map(r=>r.map(v=>{v=v==null?"":String(v);return /[",;\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}).join(",")).join("\n");return saveFile(name,csv,"text/csv");}
@@ -608,8 +841,8 @@ function openRestore(){
     const np=Object.keys(d.prod||{}).length,nd=Object.keys(d.days||{}).length,nc=Object.keys(d.cuadres||{}).length;
     $("#rkMsg").innerHTML='<p class="hint">Copia del '+esc(String(d.fecha||"").slice(0,10))+': '+np+' productos, '+nd+' días con movimientos, '+nc+' cuadres.</p><button class="btn danger" id="rkOk">Reemplazar mis datos</button>';
     $("#rkOk").onclick=()=>{
-      if(S.backend){Object.keys(d.prod||{}).forEach(k=>store.putProd(k,d.prod[k]));Object.keys(d.days||{}).forEach(k=>store.putDay(k,d.days[k]||{items:[]}));Object.keys(d.combos||{}).forEach(k=>store.putCombo(k,d.combos[k]));Object.keys(d.recetas||{}).forEach(k=>store.putReceta(k,d.recetas[k]));Object.keys(d.provs||{}).forEach(k=>store.putProv(k,d.provs[k]));Object.keys(d.cuadres||{}).forEach(k=>store.putCuadre(k,d.cuadres[k]));}
-      else{S.prod=d.prod||{};S.days=d.days||{};S.cuadres=d.cuadres||{};S.combos=d.combos||S.combos;S.recetas=d.recetas||S.recetas;S.provs=d.provs||S.provs;saveLocal();}
+      if(S.backend){Object.keys(d.prod||{}).forEach(k=>store.putProd(k,d.prod[k]));Object.keys(d.days||{}).forEach(k=>store.putDay(k,d.days[k]||{items:[]}));Object.keys(d.combos||{}).forEach(k=>store.putCombo(k,d.combos[k]));Object.keys(d.recetas||{}).forEach(k=>store.putReceta(k,d.recetas[k]));Object.keys(d.provs||{}).forEach(k=>store.putProv(k,d.provs[k]));if(d.alias)store.putAlias(d.alias);Object.keys(d.cuadres||{}).forEach(k=>store.putCuadre(k,d.cuadres[k]));}
+      else{S.prod=d.prod||{};S.days=d.days||{};S.cuadres=d.cuadres||{};S.combos=d.combos||S.combos;S.recetas=d.recetas||S.recetas;S.provs=d.provs||S.provs;S.alias=d.alias||S.alias;saveLocal();}
       closeSheet();toast("Copia restaurada");render();};};
 }
 /* ---------- Eventos ---------- */
@@ -646,6 +879,7 @@ function bind(){
     main.querySelectorAll("[data-row]").forEach(row=>{const id=row.dataset.row;row.querySelectorAll("input[data-k]").forEach(inp=>inp.oninput=()=>{S.draft[id]=S.draft[id]||{};S.draft[id][inp.dataset.k]=inp.value;
       const {res}=computeAll();row.querySelector("[data-res]").innerHTML=resCells(id,res[id],S.draft[id]);
       const n=Object.keys(S.draft).filter(k=>S.draft[k].fisico!==undefined&&S.draft[k].fisico!=="").length;const b=$("#cSave");b.disabled=!n||!S.canWrite;b.textContent="Guardar cuadre ("+n+" productos)";});});
+    $("#cImp").onclick=abrirImport;
     $("#cSave").onclick=()=>{const {res}=computeAll();const filas=[];
       Object.keys(S.draft).forEach(id=>{const d=S.draft[id],f=res[id];if(!f||d.fisico===undefined||d.fisico==="")return;const r=calcRow(f,d);
         filas.push({p:id,inicial:!f.counted,esperado:Math.round(f.stock*100)/100,fisico:r.fis,salio:r.salio,lventas:d.lventas===""||d.lventas===undefined?null:Number(d.lventas),lstock:d.lstock===""||d.lstock===undefined?null:Number(d.lstock),difV:r.difV,difS:r.difS,difApp:r.difApp});});
@@ -654,12 +888,12 @@ function bind(){
   }
   if(S.view==="combos")bindCombos(main);
   if(S.view==="mas"){
-    $("#bkExp").onclick=()=>saveFile("respaldo-inventario-capiro-"+today()+".json",JSON.stringify({app:"inventario-capiro",version:1,fecha:new Date().toISOString(),prod:S.prod,days:S.days,cuadres:S.cuadres,combos:S.combos,recetas:S.recetas,provs:S.provs}),"application/json");
+    $("#bkExp").onclick=()=>saveFile("respaldo-inventario-capiro-"+today()+".json",JSON.stringify({app:"inventario-capiro",version:1,fecha:new Date().toISOString(),prod:S.prod,days:S.days,cuadres:S.cuadres,combos:S.combos,recetas:S.recetas,provs:S.provs,alias:S.alias}),"application/json");
     $("#bkImp").onclick=openRestore;
-    $("#xStock").onclick=()=>{const {res}=computeAll();exportCSV("stock-capiro-"+today()+".csv",[["Código","Producto","Categoría","Unidad","Stock app","Mínimo","Ideal","Costo","Valor","Último conteo"]].concat(Object.keys(res).sort().map(id=>{const p=S.prod[id],f=res[id];return[id,p.nombre,p.cat,p.unidad,f.stock,p.min,p.ideal,p.costo,Math.max(0,f.stock)*(Number(p.costo)||0),f.counted?ftime(f.since):""];})));};
-    $("#xCombos").onclick=exportFichas;
-    $("#xCostos").onclick=exportCostos;
-    $("#xMov").onclick=()=>exportCSV("movimientos-capiro-"+today()+".csv",[["Fecha","Código","Producto","Tipo","Cantidad","Lote","Vence","Motivo","Nota"]].concat(allMovs().map(m=>[ftime(m.ts),m.p,prodName(m.p),TIPOS[m.t],sign(m),m.lote||"",m.vence||"",m.motivo||"",m.nota||""])));
+    $("#xStock").onclick=reporteStock;
+    $("#xCombos").onclick=reporteFichas;
+    $("#xCostos").onclick=reporteCostos;
+    $("#xMov").onclick=reporteMovimientos;
   }
 }
 document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{S.view=b.dataset.v;closeSheet();render();window.scrollTo(0,0);});
