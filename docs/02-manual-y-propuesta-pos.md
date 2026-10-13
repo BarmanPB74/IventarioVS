@@ -224,3 +224,27 @@ En **Stock**, el selector superior cambia entre **Existencias** y **Costos y mar
 **Rendimientos estimados:** el almíbar usa 800 ml y el cold brew 850 ml como rendimiento inicial. Son estimaciones; mide el volumen real la próxima vez que prepares cada uno y corrígelo en Preparaciones base.
 
 El reporte completo se exporta en **Más → Costos y margen (CSV)**.
+
+## Anexo: Pedido inteligente y diagnóstico del cuadre (versión 0.4)
+
+**Diagnóstico automático.** Al abrir un cuadre del historial, la app clasifica cada diferencia contra Loggro:
+
+| Señal | Qué significa | Qué revisar en Loggro |
+| --- | --- | --- |
+| Cruce de códigos | Dos productos de la misma categoría con diferencias iguales y opuestas (5 unidades o más) | Que el botón de venta de cada producto descuente su propio código |
+| Loggro cree que hay más | Faltante físico: venta sin registrar, merma sin descargar o pérdida | Ventas y mermas del periodo |
+| Loggro cree que hay menos | Compras sin cargar o descuentos dobles por receta | Ingresos de mercancía y recetas del producto |
+| Sin inventario en Loggro | Loggro marca 0 con producto en físico | Si el producto tiene control de inventario y se le cargan las compras |
+
+El primer cuadre de cada producto es el punto de partida: muestra «Inicio» en vez de «Salió», y ventas sin registrar aparecen desde el segundo conteo. El error de stock de Loggro sí es comparable desde el primero.
+
+**Pedido.** En **Stock → Pedido**:
+
+1. Toca **Proveedores**, agrega cada uno con su WhatsApp, días de entrega y día de pedido, y marca sus productos.
+2. En cada producto puedes poner las **unidades por caja**; el pedido se redondea a cajas completas.
+3. Con 2 conteos de un producto separados por 3 días o más, la app calcula la salida real por día: conteo anterior + entradas − conteo actual, dividido entre los días. Incluye ventas, mermas y consumo, porque todo eso hay que reponer.
+4. Cantidad sugerida = salida por día × (días a cubrir + días de entrega) − stock actual. Por defecto cubre 7 días; se cambia arriba.
+5. Corrige cualquier cantidad a mano y toca **Enviar por WhatsApp** o **Copiar pedido**.
+6. La tabla **Mínimos e ideales según la venta real** propone reemplazar tus estimaciones; tócala después de 2 semanas de datos.
+
+Para que la salida real sea correcta, toda entrada de mercancía debe registrarse en **Mover → Entrada** antes del siguiente cuadre.

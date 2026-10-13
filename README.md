@@ -10,6 +10,8 @@ App de control de inventario para Café Capiro (vivero Capiro, La Ceja, Antioqui
 - Indica cada día qué lote sacar primero (FEFO), qué está bajo el mínimo y cuánto pedir.
 - Cuadra el conteo físico contra el stock y las ventas que reporta Loggro, y calcula ventas sin registrar y error de stock por producto.
 - Exporta CSV para Excel o Google Sheets y guarda copias de seguridad en JSON.
+- Arma el pedido por proveedor con la salida real de los últimos 28 días y lo envía por WhatsApp.
+- Diagnostica cada cuadre: productos que cuadran, cruces de códigos, faltantes y productos sin inventario en Loggro.
 - Calcula costo, margen y costo % de cada bebida, producto de reventa y combo, y sugiere el precio de cada combo.
 - Mide cada combo durante 4 semanas contra su semana base y propone mantenerlo, ajustarlo o retirarlo.
 - Trae precargados los 91 productos del catálogo del café y 9 combos de la carta.
@@ -54,4 +56,5 @@ En el APK y en la versión web los datos se guardan solo en ese dispositivo. Haz
 | 0.1 Control | Publicada |
 | 0.2 Promociones | Publicada: pestaña Combos con registro diario, ticket promedio y ficha de prueba de 4 semanas |
 | 0.3 Costos y margen | Publicada: Stock → Costos y margen, con 33 recetas del libro maestro, 2 preparaciones base, reventa y costo de combos |
-| 0.4 Pedido inteligente | Siguiente; ver el plan de evolución |
+| 0.4 Pedido inteligente | Publicada: Stock → Pedido con salida real, proveedores y envío por WhatsApp; diagnóstico automático del cuadre frente a Loggro |
+| 0.5 Importar Loggro | Siguiente; verificar antes si Loggro exporta CSV |

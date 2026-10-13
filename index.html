@@ -137,7 +137,7 @@ const CATS=["Lácteos y refrigerados","Cervezas","Hojaldres y panadería","Torta
 const TIPOS={entrada:"Entrada",merma:"Merma",consumo:"Consumo",venta:"Venta",ajuste:"Ajuste"};
 const PRIO={1:"P1 Lácteo",2:"P2 Cerveza",3:"P3 Hojaldre",4:"P4 Almojábana"};
 const MERMA=["Vencido","Dañado o golpeado","Preparación fallida","Caída / derrame","Degustación","Otro"];
-const S={prod:{},days:{},cuadres:{},combos:{},recetas:{},smode:"exist",cmode:"bebidas",view:"hoy",cat:"Todas",q:"",mov:{t:"entrada",p:"",qty:1,lote:"",vence:"",costo:"",motivo:MERMA[0],nota:"",filtro:""},ccat:"Lácteos y refrigerados",draft:{},backend:null,pendingRender:false,canWrite:true};
+const S={prod:{},days:{},cuadres:{},combos:{},recetas:{},provs:{},pedEdit:{},cob:(()=>{try{return Number(localStorage.getItem("capiro-cobertura"))||7;}catch(e){return 7;}})(),smode:"exist",cmode:"bebidas",view:"hoy",cat:"Todas",q:"",mov:{t:"entrada",p:"",qty:1,lote:"",vence:"",costo:"",motivo:MERMA[0],nota:"",filtro:""},ccat:"Lácteos y refrigerados",draft:{},backend:null,pendingRender:false,canWrite:true};
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt=n=>{n=Number(n)||0;return Math.abs(n%1)>0?n.toFixed(1).replace(".",","):String(Math.round(n));};
@@ -154,15 +154,16 @@ function toast(m){const t=$("#toast");t.innerHTML='<div class="toast" role="stat
 const LKEY="capiro-inventario-v1";
 let chain=Promise.resolve();
 function enqueue(fn){chain=chain.then(fn).catch(e=>{console.error(e);toast(e&&e.code==="quota_exceeded"?"Base llena: exporta y limpia movimientos antiguos.":"No se pudo guardar. Revisa la conexión e intenta de nuevo.");});return chain;}
-function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({prod:S.prod,days:S.days,cuadres:S.cuadres,combos:S.combos,recetas:S.recetas}));}catch(e){}}
+function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({prod:S.prod,days:S.days,cuadres:S.cuadres,combos:S.combos,recetas:S.recetas,provs:S.provs}));}catch(e){}}
 function loadLocal(){let d=null;try{d=JSON.parse(localStorage.getItem(LKEY)||"null");}catch(e){}
-  if(d){S.prod=d.prod||{};S.days=d.days||{};S.cuadres=d.cuadres||{};S.combos=d.combos||JSON.parse(JSON.stringify(COMBOS_BASE));S.recetas=d.recetas||JSON.parse(JSON.stringify(RECETAS_BASE));migrar03();if(!d.combos||!d.recetas)saveLocal();}
+  if(d){S.prod=d.prod||{};S.days=d.days||{};S.cuadres=d.cuadres||{};S.combos=d.combos||JSON.parse(JSON.stringify(COMBOS_BASE));S.recetas=d.recetas||JSON.parse(JSON.stringify(RECETAS_BASE));S.provs=d.provs||{};migrar03();if(!d.combos||!d.recetas)saveLocal();}
   else{S.prod=JSON.parse(JSON.stringify(CATALOGO));S.combos=JSON.parse(JSON.stringify(COMBOS_BASE));S.recetas=JSON.parse(JSON.stringify(RECETAS_BASE));saveLocal();S.firstRun=true;}}
 function migrar03(){if(!S.prod["IN-018"])S.prod["IN-018"]=JSON.parse(JSON.stringify(CATALOGO["IN-018"]));Object.keys(S.combos).forEach(k=>{if(!S.combos[k].piezas&&COMBOS_BASE[k])S.combos[k].piezas=JSON.parse(JSON.stringify(COMBOS_BASE[k].piezas||[]));});}
 const store={
   putProd(id,data){S.prod[id]=data;if(S.backend)return enqueue(()=>S.backend.collection("productos").doc(id).set(data));saveLocal();render();},
   delProd(id){delete S.prod[id];if(S.backend)return enqueue(()=>S.backend.collection("productos").doc(id).delete());saveLocal();render();},
   putDay(date,day){S.days[date]=day;if(S.backend)return enqueue(()=>S.backend.collection("dias").doc(date).set(day));saveLocal();render();},
+  putProv(id,data){S.provs[id]=data;if(S.backend)return enqueue(()=>S.backend.collection("proveedores").doc(id).set(data));saveLocal();render();},
   putReceta(id,data){S.recetas[id]=data;if(S.backend)return enqueue(()=>S.backend.collection("recetas").doc(id).set(data));saveLocal();render();},
   putCombo(id,data){S.combos[id]=data;if(S.backend)return enqueue(()=>S.backend.collection("combos").doc(id).set(data));saveLocal();render();},
   putCuadre(id,data){S.cuadres[id]=data;if(S.backend)return enqueue(()=>S.backend.collection("cuadres").doc(id).set(data));saveLocal();render();},
@@ -176,14 +177,15 @@ async function connect(){
   if(!db){loadLocal();setMode("local",window.AndroidApp?"En este teléfono":"Solo este navegador");S.ready=true;render();if(S.firstRun)toast("Catálogo del libro maestro cargado: 91 productos");return;}
   S.backend=db;setMode("on","Sincronizado");
   try{const u=window.claude&&window.claude.use?await window.claude.use("user"):null;if(u){const c=await u.can("data.write");if(c===false)S.canWrite=false;}}catch(e){}
-  const loaded={p:false,d:false,c:false,k:false,r:false};
+  const loaded={p:false,d:false,c:false,k:false,r:false,v:false};
   const onErr=e=>{setMode("local","Sin conexión");console.error(e);};
   db.collection("productos").onSnapshot(s=>{S.prod=snapToMap(s);loaded.p=true;maybe();},onErr);
   db.collection("dias").onSnapshot(s=>{S.days=snapToMap(s);loaded.d=true;maybe();},onErr);
   db.collection("cuadres").onSnapshot(s=>{S.cuadres=snapToMap(s);loaded.c=true;maybe();},onErr);
+  db.collection("proveedores").onSnapshot(s=>{S.provs=snapToMap(s);loaded.v=true;maybe();},onErr);
   db.collection("recetas").onSnapshot(s=>{S.recetas=snapToMap(s);loaded.r=true;maybe();},onErr);
   db.collection("combos").onSnapshot(s=>{S.combos=snapToMap(s);loaded.k=true;maybe();},onErr);
-  function maybe(){if(loaded.p&&loaded.d&&loaded.c&&loaded.k&&loaded.r){S.ready=true;softRender();}}
+  function maybe(){if(loaded.p&&loaded.d&&loaded.c&&loaded.k&&loaded.r&&loaded.v){S.ready=true;softRender();}}
 }
 function softRender(){const a=document.activeElement;if(a&&$("#main").contains(a)&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)){S.pendingRender=true;return;}render();}
 document.addEventListener("focusout",()=>setTimeout(()=>{if(S.pendingRender){S.pendingRender=false;softRender();}},150));
@@ -270,6 +272,7 @@ function catChips(cur,attr,withAll){return '<div class="chips">'+(withAll?['Toda
 function status(p,f){if(f.stock<=0)return'<span class="pill bad">Agotado</span>';if(Number(p.min)>0&&f.stock<=Number(p.min))return'<span class="pill warn">Bajo</span>';if(!(Number(p.min)>0))return'<span class="pill mut">Sin mínimo</span>';return'<span class="pill p">OK</span>';}
 function vStock(){
   if(S.smode==="costos")return vCostos();
+  if(S.smode==="pedido")return vPedido();
   const {res}=computeAll();const q=S.q.trim().toLowerCase();
   let ids=Object.keys(S.prod).filter(id=>S.prod[id].activo!==false&&(S.cat==="Todas"||S.prod[id].cat===S.cat)&&(!q||(S.prod[id].nombre+" "+id).toLowerCase().includes(q)));
   ids.sort((a,b)=>(S.prod[a].prio||9)-(S.prod[b].prio||9)||S.prod[a].nombre.localeCompare(S.prod[b].nombre));
@@ -297,14 +300,14 @@ function vCuadre(){
   return h;
 }
 function calcRow(f,d){const fis=d.fisico===undefined||d.fisico===""?null:Number(d.fisico);
-  const salio=fis===null?null:f.base+f.ent+f.ajuste-f.merma-f.consumo-fis;
+  const salio=fis===null||!f.counted?null:f.base+f.ent+f.ajuste-f.merma-f.consumo-fis;
   const lv=d.lventas===undefined||d.lventas===""?null:Number(d.lventas);
   const ls=d.lstock===undefined||d.lstock===""?null:Number(d.lstock);
-  return{fis,salio,difV:(salio!==null&&lv!==null)?salio-lv:null,difS:(fis!==null&&ls!==null)?ls-fis:null,difApp:fis!==null?fis-f.stock:null};}
+  return{fis,salio,difV:(salio!==null&&lv!==null)?salio-lv:null,difS:(fis!==null&&ls!==null)?ls-fis:null,difApp:fis!==null&&f.counted?fis-f.stock:null};}
 function cls(n){return n===null?"":Math.abs(n)<1e-9?"zero":n<0?"neg":"pos";}
 function resCells(id,f,d){const r=calcRow(f,d);const v=n=>n===null?"—":(n>0?"+":"")+fmt(n);
-  return'<div>Salió (calculado)<b>'+(r.salio===null?"—":fmt(r.salio))+'</b></div><div>Ventas sin registrar<b class="'+cls(r.difV)+'">'+v(r.difV)+'</b></div><div>Error stock Loggro<b class="'+cls(r.difS)+'">'+v(r.difS)+'</b></div>';}
-function cuadreSummary(c){let valor=0,faltVentas=0;(c.filas||[]).forEach(r=>{const cost=Number((S.prod[r.p]||{}).costo)||0;if(typeof r.difApp==="number")valor+=r.difApp*cost;if(typeof r.difV==="number"&&r.difV>0)faltVentas+=r.difV;});return{valor,faltVentas};}
+  return'<div>'+(f.counted?'Salió (calculado)':'Primer conteo')+'<b>'+(r.salio===null?(f.counted?"—":"Inicio"):fmt(r.salio))+'</b></div><div>Ventas sin registrar<b class="'+cls(r.difV)+'">'+v(r.difV)+'</b></div><div>Error stock Loggro<b class="'+cls(r.difS)+'">'+v(r.difS)+'</b></div>';}
+function cuadreSummary(c){let valor=0,faltVentas=0;(c.filas||[]).map(normFila).forEach(r=>{const cost=Number((S.prod[r.p]||{}).costo)||0;if(typeof r.difApp==="number")valor+=r.difApp*cost;if(typeof r.difV==="number"&&r.difV>0)faltVentas+=r.difV;});return{valor,faltVentas};}
 function vMas(){
   const movs=allMovs().slice().reverse().slice(0,60);
   let h='<h2>Exportar</h2><div class="btns"><button class="btn sec" id="xStock">Stock actual (CSV)</button><button class="btn sec" id="xMov">Movimientos (CSV)</button><button class="btn sec" id="xCombos">Fichas de combos (CSV)</button><button class="btn sec" id="xCostos">Costos y margen (CSV)</button></div><p class="hint">Abre los CSV en Excel o Google Sheets para mostrarle al dueño las diferencias con Loggro.</p>';
@@ -402,7 +405,7 @@ function exportFichas(){const rows=[["Combo","Semana","Desde","Hasta","Vendidos"
 
 /* ---------- Costos y margen (versión 0.3) ---------- */
 const REVENTA=["Lácteos y refrigerados","Cervezas","Hojaldres y panadería","Tortas","Bebidas envasadas","Vinos","Café empacado"];
-function stockSeg(){return'<div class="seg" style="grid-template-columns:1fr 1fr;margin-top:16px" role="group" aria-label="Vista"><button type="button" data-smode="exist" aria-pressed="'+(S.smode!=="costos")+'">Existencias</button><button type="button" data-smode="costos" aria-pressed="'+(S.smode==="costos")+'">Costos y margen</button></div>';}
+function stockSeg(){return stockSeg3();}
 function baseDe(pid){for(const k in S.recetas){const r=S.recetas[k];if(r.tipo==="base"&&r.produce===pid)return Object.assign({id:k},r);}return null;}
 function costoProd(pid,depth){depth=depth||0;const b=depth<3?baseDe(pid):null;
   if(b){const r=costoReceta(b,depth+1);const rinde=Number(b.rinde)||0;return{c:rinde?r.c/rinde:0,faltan:r.faltan};}
@@ -476,6 +479,83 @@ function exportCostos(){const rows=[["Tipo","Código","Nombre","Costo ($)","Prec
   comboList().forEach(c=>{const x=costoCombo(c);const pr=Number(c.precio)||0;rows.push(["Combo",c.id,c.nombre,Math.round(x.c),pr,pr?Math.round(pr-x.c):"",pr?Math.round(x.c/pr*100):"",x.faltan.map(prodName).join("; ")]);});
   exportCSV("costos-margen-"+today()+".csv",rows);}
 
+/* ---------- Pedido inteligente (versión 0.4) ---------- */
+function esInicial(x){return x.inicial===true||(x.inicial===undefined&&Number(x.esperado)===0&&typeof x.salio==="number"&&typeof x.fisico==="number"&&Math.abs(x.salio+x.fisico)<1e-9);}
+function normFila(x){if(!esInicial(x))return x;return Object.assign({},x,{salio:null,difV:null,difApp:null});}
+function diagnostico(filas){const rs=filas.map(normFila).filter(x=>typeof x.difS==="number");
+  const ok=rs.filter(x=>Math.abs(x.difS)<1e-9),mas=rs.filter(x=>x.difS>0),sinCtl=rs.filter(x=>x.difS<0&&Number(x.lstock)===0&&Number(x.fisico)>0),menos=rs.filter(x=>x.difS<0&&!(Number(x.lstock)===0));
+  const cruces=[];const usados=new Set();
+  const elig=x=>Math.abs(x.difS)>=5&&Number(x.lstock)>0;rs.forEach(a=>{if(usados.has(a.p)||!elig(a))return;const ca=(S.prod[a.p]||{}).cat;const b=rs.find(b=>b.p!==a.p&&!usados.has(b.p)&&elig(b)&&(S.prod[b.p]||{}).cat===ca&&Math.abs(a.difS+b.difS)<1e-9);if(b){usados.add(a.p);usados.add(b.p);cruces.push([a,b]);}});
+  return{total:rs.length,ok,mas,menos,sinCtl,cruces};}
+function diagHtml(dg){if(!dg.total)return'';const n=x=>esc(prodName(x.p));const lista=(arr,f)=>arr.slice().sort((a,b)=>Math.abs(b.difS)-Math.abs(a.difS)).slice(0,8).map(f).join(", ")+(arr.length>8?"…":"");
+  let h='<h3>Diagnóstico frente a Loggro</h3><p class="hint">'+dg.ok.length+' de '+dg.total+' productos cuadran exacto ('+Math.round(dg.ok.length/dg.total*100)+' %).</p>';
+  if(dg.cruces.length)h+='<div class="alert bad"><span class="dot"></span><div class="t"><b>Posible cruce de códigos</b><div>'+dg.cruces.map(([a,b])=>n(a)+' '+(a.difS>0?"+":"")+fmt(a.difS)+' y '+n(b)+' '+(b.difS>0?"+":"")+fmt(b.difS)).join(" · ")+'. Diferencias iguales y opuestas: se vende uno y se registra el otro.</div></div></div>';
+  const mas=dg.mas.filter(x=>!dg.cruces.some(c=>c.includes(x)));const menos=dg.menos.filter(x=>!dg.cruces.some(c=>c.includes(x)));
+  if(mas.length)h+='<div class="alert bad"><span class="dot"></span><div class="t"><b>Loggro cree que hay más ('+mas.length+' productos, '+fmt(mas.reduce((s,x)=>s+x.difS,0))+' und)</b><div>Posibles ventas sin registrar, mermas sin descargar o faltantes: '+lista(mas,x=>n(x)+' +'+fmt(x.difS))+'.</div></div></div>';
+  if(menos.length)h+='<div class="alert warn"><span class="dot"></span><div class="t"><b>Loggro cree que hay menos ('+menos.length+' productos, '+fmt(menos.reduce((s,x)=>s+x.difS,0))+' und)</b><div>Compras sin cargar en Loggro o descuentos dobles por receta: '+lista(menos,x=>n(x)+' '+fmt(x.difS))+'.</div></div></div>';
+  if(dg.sinCtl.length)h+='<div class="alert warn"><span class="dot"></span><div class="t"><b>Sin inventario en Loggro ('+dg.sinCtl.length+' productos, '+fmt(dg.sinCtl.reduce((s,x)=>s+Number(x.fisico),0))+' und en físico)</b><div>Loggro marca 0 pero hay producto: no se le cargan las compras o no tiene control de inventario. '+lista(dg.sinCtl,x=>n(x)+' '+fmt(x.fisico))+'.</div></div></div>';
+  return h;}
+function conteos(pid){const out=[];cuadreList().forEach(c=>{const r=(c.filas||[]).find(f=>f.p===pid&&f.fisico!==null&&f.fisico!==undefined&&f.fisico!=="");if(r)out.push({ts:c.ts,f:Number(r.fisico)});});return out.sort((a,b)=>a.ts-b.ts);}
+function demanda(pid,movs){const cs=conteos(pid);const desde=Date.now()-28*864e5;let sal=0,dias=0,pares=0;
+  for(let i=1;i<cs.length;i++){const a=cs[i-1],b=cs[i];if(b.ts<desde)continue;const d=(b.ts-a.ts)/864e5;if(d<0.5)continue;
+    let ent=0;movs.forEach(m=>{if(m.p===pid&&m.ts>a.ts&&m.ts<=b.ts&&(m.t==="entrada"||m.t==="ajuste"))ent+=Number(m.q)||0;});
+    sal+=a.f+ent-b.f;dias+=d;pares++;}
+  return dias>=3?{dia:Math.max(0,sal/dias),dias:Math.round(dias),pares}:null;}
+function provDe(p){return p&&p.prov&&S.provs[p.prov]?Object.assign({id:p.prov},S.provs[p.prov]):null;}
+function cobertura(){return Number(S.cob)||7;}
+function planPedido(){const {res,movs}=computeAll();const items=[];
+  Object.keys(res).forEach(id=>{const p=S.prod[id],f=res[id];const pv=provDe(p);const ent=pv&&Number(pv.entrega)>=0?Number(pv.entrega):2;
+    const dm=demanda(id,movs);const minS=dm?Math.ceil(dm.dia*(ent+1)):null,idealS=dm?Math.ceil(dm.dia*(cobertura()+ent)):null;
+    const target=idealS!==null?idealS:(Number(p.ideal)||0);const caja=Math.max(1,Number(p.caja)||1);
+    let pedir=Math.max(0,target-Math.max(0,f.stock));if(pedir>0)pedir=Math.ceil(pedir/caja)*caja;
+    const ov=S.pedEdit[id];if(ov!==undefined&&ov!=="")pedir=Math.max(0,Number(ov)||0);
+    items.push({id,p,f,dm,minS,idealS,target,pedir,caja,pv,ent});});
+  return items;}
+function stockSeg3(){return'<div class="seg" style="grid-template-columns:repeat(3,1fr);margin-top:16px" role="group" aria-label="Vista">'+[["exist","Existencias"],["costos","Costos"],["pedido","Pedido"]].map(([k,l])=>'<button type="button" data-smode="'+k+'" aria-pressed="'+((S.smode||"exist")===k)+'">'+l+'</button>').join("")+'</div>';}
+function vPedido(){const items=planPedido();const ped=items.filter(x=>x.pedir>0);const conDatos=items.filter(x=>x.dm);
+  const desde=Date.now()-28*864e5;let agot=0;cuadreList().forEach(c=>{if(c.ts<desde)return;(c.filas||[]).forEach(r=>{if(Number((S.prod[r.p]||{}).prio)>0&&Number(r.fisico)===0)agot++;});});
+  const agotHoy=items.filter(x=>Number(x.p.prio)>0&&x.f.counted&&x.f.stock<=0).length;
+  let h=stockSeg3()+'<h2>Pedido sugerido</h2>';
+  h+='<div class="stats"><div class="stat"><div class="lbl">Con datos reales</div><div class="n">'+conDatos.length+'</div></div><div class="stat"><div class="lbl">Líneas a pedir</div><div class="n">'+ped.length+'</div></div><div class="stat"><div class="lbl">Agotados P1–P4 28 d</div><div class="n">'+agot+'</div></div></div>';
+  if(agotHoy)h+='<div class="alert bad"><span class="dot"></span><div class="t"><b>'+agotHoy+' producto'+(agotHoy>1?"s":"")+' P1–P4 agotado'+(agotHoy>1?"s":"")+' ahora</b><div>La meta de esta fase es cero agotados en el pico de jueves a sábado.</div></div></div>';
+  h+='<div class="form" style="margin-top:12px"><div class="grid2"><label class="f" for="pdCob">Cubrir días<input id="pdCob" type="number" inputmode="numeric" value="'+cobertura()+'"></label><div style="display:flex;align-items:end"><button class="btn sec" id="pdProv" style="width:100%">Proveedores ('+Object.keys(S.provs).length+')</button></div></div><p class="hint">Con 2 conteos o más separados por 3 días, la app calcula la salida real por día y pide para cubrir esos días más el tiempo de entrega del proveedor. Sin datos usa el ideal que configuraste.</p></div>';
+  if(!ped.length)h+='<div class="empty">Nada por pedir. '+(conDatos.length?'':'Haz otro cuadre en unos días para que la app calcule la salida real, o configura el ideal de cada producto.')+'</div>';
+  const grupos={};ped.forEach(x=>{const k=x.pv?x.pv.id:"_";(grupos[k]=grupos[k]||[]).push(x);});
+  Object.keys(grupos).sort((a,b)=>a==="_"?1:b==="_"?-1:String(S.provs[a].nombre).localeCompare(S.provs[b].nombre)).forEach(k=>{const pv=k==="_"?null:Object.assign({id:k},S.provs[k]);const arr=grupos[k].sort((a,b)=>a.p.nombre.localeCompare(b.p.nombre));
+    h+='<h3>'+(pv?esc(pv.nombre):"Sin proveedor asignado")+(pv&&pv.dia?' <span class="sub">· pedir '+esc(pv.dia)+'</span>':'')+'</h3><div class="list">'+arr.map(x=>'<div class="row" style="cursor:default"><div style="min-width:0"><div class="nm">'+esc(x.p.nombre)+'</div><div class="sub">hay '+fmt(Math.max(0,x.f.stock))+' · '+(x.dm?'sale '+fmt(Math.round(x.dm.dia*10)/10)+'/día ('+x.dm.dias+' d)':'ideal manual '+fmt(x.p.ideal))+(x.caja>1?' · caja de '+fmt(x.caja):'')+'</div></div><input class="num" style="width:76px;text-align:center" type="number" inputmode="decimal" data-ped="'+esc(x.id)+'" value="'+fmt(x.pedir)+'" aria-label="Cantidad a pedir"></div>').join("")+'</div>';
+    h+='<div class="btns" style="margin-top:8px"><button class="btn" data-pcopy="'+esc(k)+'">Copiar pedido</button>'+(pv&&waNum(pv.tel)?'<a class="btn sec" style="text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/'+waNum(pv.tel)+'?text='+encodeURIComponent(textoPedido(pv,arr))+'">Enviar por WhatsApp</a>':'')+'</div>';});
+  const ajustar=conDatos.filter(x=>x.idealS!==Number(x.p.ideal)||x.minS!==Number(x.p.min));
+  if(ajustar.length){h+='<h2>Mínimos e ideales según la venta real</h2><p class="hint">Calculados con la salida de los últimos 28 días. Revisa y aplica para que Hoy y el pedido usen números reales.</p><div class="scroll"><table class="rep"><thead><tr><th>Producto</th><th>Sale/día</th><th>Mín. actual</th><th>Mín. sugerido</th><th>Ideal actual</th><th>Ideal sugerido</th></tr></thead><tbody>'+ajustar.map(x=>'<tr><td>'+esc(x.p.nombre)+'</td><td class="num">'+fmt(Math.round(x.dm.dia*10)/10)+'</td><td class="num">'+fmt(x.p.min)+'</td><td class="num">'+fmt(x.minS)+'</td><td class="num">'+fmt(x.p.ideal)+'</td><td class="num">'+fmt(x.idealS)+'</td></tr>').join("")+'</tbody></table></div><button class="btn sec" id="pdApply" style="margin-top:8px"'+(S.canWrite?"":" disabled")+'>Aplicar a '+ajustar.length+' productos</button><div id="pdConf"></div>';}
+  return h;}
+function waNum(t){let d=String(t||"").replace(/\D/g,"");if(d.length===10)d="57"+d;return d.length>=11?d:"";}
+function textoPedido(pv,arr){return'Hola'+(pv&&pv.contacto?' '+pv.contacto:'')+', pedido de Café Capiro para '+(pv&&Number(pv.entrega)>0?'entregar en '+pv.entrega+' día'+(pv.entrega>1?'s':''):'la próxima entrega')+':\n'+arr.filter(x=>x.pedir>0).map(x=>'- '+fmt(x.pedir)+' '+(x.p.unidad||"und")+' '+x.p.nombre).join("\n")+'\nGracias.';}
+function bindPedido(main){
+  $("#pdCob").onchange=e=>{const v=Math.max(1,Math.min(30,Number(e.target.value)||7));S.cob=v;try{localStorage.setItem("capiro-cobertura",String(v));}catch(_){}render();};
+  $("#pdProv").onclick=editProvs;
+  main.querySelectorAll("[data-ped]").forEach(i=>i.onchange=()=>{S.pedEdit[i.dataset.ped]=i.value;});
+  main.querySelectorAll("[data-pcopy]").forEach(b=>b.onclick=()=>{const k=b.dataset.pcopy;const pv=k==="_"?null:Object.assign({id:k},S.provs[k]);const arr=planPedido().filter(x=>x.pedir>0&&(x.pv?x.pv.id:"_")===k);const t=textoPedido(pv,arr);
+    navigator.clipboard.writeText(t).then(()=>toast("Pedido copiado")).catch(()=>{openSheet('<h2>Pedido</h2><textarea id="pdT" rows="10" readonly>'+esc(t)+'</textarea><button class="btn sec" id="pdX" style="margin-top:8px">Cerrar</button>');$("#pdX").onclick=closeSheet;$("#pdT").select();});});
+  const ap=$("#pdApply");if(ap)ap.onclick=()=>{$("#pdConf").innerHTML='<p class="hint">Se reemplazan el mínimo y el ideal de esos productos.</p><button class="btn" id="pdOk">Sí, aplicar</button>';
+    $("#pdOk").onclick=()=>{planPedido().filter(x=>x.dm&&(x.idealS!==Number(x.p.ideal)||x.minS!==Number(x.p.min))).forEach(x=>store.putProd(x.id,Object.assign({},x.p,{min:x.minS,ideal:x.idealS})));S.pedEdit={};toast("Mínimos e ideales actualizados");};};}
+function editProvs(){const ids=Object.keys(S.provs).sort((a,b)=>String(S.provs[a].nombre).localeCompare(S.provs[b].nombre));
+  openSheet('<h2>Proveedores</h2>'+(ids.length?'<div class="list">'+ids.map(k=>{const v=S.provs[k];const n=Object.keys(S.prod).filter(p=>S.prod[p].prov===k&&S.prod[p].activo!==false).length;return'<button class="row" data-pv="'+esc(k)+'"><div><div class="nm">'+esc(v.nombre)+'</div><div class="sub">'+(v.tel?esc(v.tel)+' · ':'')+'entrega en '+fmt(v.entrega||0)+' d'+(v.dia?' · pedir '+esc(v.dia):'')+' · '+n+' productos</div></div></button>';}).join("")+'</div>':'<div class="empty">Sin proveedores. Agrega el primero y luego asígnalo a cada producto en Stock.</div>')+
+    '<div class="btns" style="margin-top:12px"><button class="btn" id="pvNew">Agregar proveedor</button><button class="btn sec" id="pvX">Cerrar</button></div>');
+  $("#pvX").onclick=closeSheet;$("#pvNew").onclick=()=>editProv(null);document.querySelectorAll("[data-pv]").forEach(b=>b.onclick=()=>editProv(b.dataset.pv));}
+function editProv(id){const v=id?S.provs[id]:{nombre:"",contacto:"",tel:"",entrega:2,dia:""};
+  const ps=Object.keys(S.prod).filter(k=>S.prod[k].activo!==false).sort((a,b)=>S.prod[a].nombre.localeCompare(S.prod[b].nombre));
+  openSheet('<h2>'+(id?"Editar proveedor":"Nuevo proveedor")+'</h2><form id="pvForm" class="form"><label class="f" for="pvNom">Nombre<input id="pvNom" value="'+esc(v.nombre)+'" required placeholder="Ej: Distribuidora de lácteos"></label>'+
+    '<div class="grid2"><label class="f" for="pvCon">Contacto<input id="pvCon" value="'+esc(v.contacto||"")+'"></label><label class="f" for="pvTel">WhatsApp<input id="pvTel" type="tel" inputmode="tel" value="'+esc(v.tel||"")+'" placeholder="300 123 4567"></label></div>'+
+    '<div class="grid2"><label class="f" for="pvEnt">Días de entrega<input id="pvEnt" type="number" inputmode="numeric" value="'+esc(v.entrega??2)+'"></label><label class="f" for="pvDia">Día de pedido<input id="pvDia" value="'+esc(v.dia||"")+'" placeholder="martes"></label></div>'+
+    '<label class="f" for="pvFil">Productos de este proveedor<input id="pvFil" type="search" placeholder="Filtrar"></label><div class="chk" id="pvChk">'+ps.map(k=>'<label data-n="'+esc((S.prod[k].nombre+" "+k).toLowerCase())+'"><input type="checkbox" value="'+esc(k)+'"'+(id&&S.prod[k].prov===id?" checked":"")+'>'+esc(S.prod[k].nombre)+(S.prod[k].prov&&S.prod[k].prov!==id&&S.provs[S.prod[k].prov]?' <span class="sub">('+esc(S.provs[S.prod[k].prov].nombre)+')</span>':'')+'</label>').join("")+'</div>'+
+    '<div class="btns"><button class="btn" type="submit">Guardar</button><button class="btn sec" type="button" id="pvBack">Volver</button></div></form>');
+  $("#pvBack").onclick=editProvs;
+  $("#pvFil").oninput=e=>{const q=e.target.value.trim().toLowerCase();document.querySelectorAll("#pvChk label").forEach(l=>{l.hidden=!!q&&!l.dataset.n.includes(q);});};
+  $("#pvForm").addEventListener("submit",e=>{e.preventDefault();const nom=$("#pvNom").value.trim();if(!nom){toast("El proveedor necesita un nombre.");return;}
+    const pid=id||("pv-"+rid());store.putProv(pid,{nombre:nom,contacto:$("#pvCon").value.trim(),tel:$("#pvTel").value.trim(),entrega:Math.max(0,Number($("#pvEnt").value)||0),dia:$("#pvDia").value.trim()});
+    const marcados=new Set([...document.querySelectorAll("#pvChk input:checked")].map(i=>i.value));
+    Object.keys(S.prod).forEach(k=>{const p=S.prod[k];if(marcados.has(k)&&p.prov!==pid)store.putProd(k,Object.assign({},p,{prov:pid}));else if(!marcados.has(k)&&p.prov===pid)store.putProd(k,Object.assign({},p,{prov:""}));});
+    toast("Proveedor guardado");editProvs();});}
+
 /* ---------- Hojas ---------- */
 function closeSheet(){$("#sheet").innerHTML="";}
 function openSheet(html){$("#sheet").innerHTML='<div class="sheet-bg" id="sbg"><div class="sheet" role="dialog" aria-modal="true">'+html+'</div></div>';
@@ -489,6 +569,7 @@ function editProduct(id){
     '<div class="grid2"><label class="f" for="pMin">Stock mínimo<input id="pMin" type="number" inputmode="decimal" step="any" value="'+esc(p.min)+'"></label><label class="f" for="pIdeal">Stock ideal<input id="pIdeal" type="number" inputmode="decimal" step="any" value="'+esc(p.ideal)+'"></label></div>'+
     '<div class="grid2"><label class="f" for="pCosto">Costo unitario<input id="pCosto" type="number" inputmode="decimal" value="'+esc(p.costo)+'"></label><label class="f" for="pPrecio">Precio de venta<input id="pPrecio" type="number" inputmode="decimal" value="'+esc(p.precio||"")+'" placeholder="Si se vende tal cual"></label></div>'+
     '<label class="f" for="pUbic">Ubicación<input id="pUbic" value="'+esc(p.ubic||"")+'" placeholder="Nevera, vitrina, bodega"></label>'+
+    '<div class="grid2"><label class="f" for="pProv">Proveedor<select id="pProv"><option value="">Sin asignar</option>'+Object.keys(S.provs).sort((a,b)=>String(S.provs[a].nombre).localeCompare(S.provs[b].nombre)).map(k=>'<option value="'+esc(k)+'"'+(p.prov===k?" selected":"")+'>'+esc(S.provs[k].nombre)+'</option>').join("")+'</select></label><label class="f" for="pCaja">Unidades por caja<input id="pCaja" type="number" inputmode="numeric" value="'+esc(p.caja||1)+'"></label></div>'+
     '<div class="grid2"><label class="f" for="pPrio">Prioridad de rotación<select id="pPrio"><option value="0">Ninguna</option>'+[1,2,3,4].map(n=>'<option value="'+n+'"'+(Number(p.prio)===n?" selected":"")+'>'+PRIO[n]+'</option>').join("")+'</select></label><label class="f" for="pPer">Perecedero<select id="pPer"><option value="1"'+(p.per?" selected":"")+'>Sí, controlar vencimiento</option><option value="0"'+(!p.per?" selected":"")+'>No</option></select></label></div>'+
     '<div class="btns"><button class="btn" type="submit">Guardar</button><button class="btn sec" type="button" id="pCancel">Cancelar</button>'+(id?'<button class="btn danger" type="button" id="pDel">Archivar</button>':'')+'</div><div id="pConfirm"></div></form>');
   $("#pCancel").onclick=closeSheet;
@@ -496,12 +577,13 @@ function editProduct(id){
   $("#pForm").addEventListener("submit",e=>{e.preventDefault();const code=$("#pId").value.trim().toUpperCase().replace(/[^A-Z0-9_\-.]/g,"");const nom=$("#pNom").value.trim();
     if(!code||!nom){toast("Código y nombre son obligatorios.");return;}
     if(!id&&S.prod[code]&&S.prod[code].activo!==false){toast("Ese código ya existe.");return;}
-    store.putProd(code,{nombre:nom,cat:$("#pCat").value,unidad:$("#pUn").value.trim()||"und",min:Number($("#pMin").value)||0,ideal:Number($("#pIdeal").value)||0,costo:Number($("#pCosto").value)||0,precio:Number($("#pPrecio").value)||0,ubic:$("#pUbic").value.trim(),prio:Number($("#pPrio").value)||0,per:$("#pPer").value==="1",activo:true});
+    store.putProd(code,{nombre:nom,cat:$("#pCat").value,unidad:$("#pUn").value.trim()||"und",min:Number($("#pMin").value)||0,ideal:Number($("#pIdeal").value)||0,costo:Number($("#pCosto").value)||0,precio:Number($("#pPrecio").value)||0,prov:$("#pProv").value,caja:Math.max(1,Number($("#pCaja").value)||1),ubic:$("#pUbic").value.trim(),prio:Number($("#pPrio").value)||0,per:$("#pPer").value==="1",activo:true});
     closeSheet();toast("Producto guardado");});
 }
 function showCuadre(id){const c=S.cuadres[id];if(!c)return;const r=cuadreSummary(c);
-  const rows=(c.filas||[]).slice().sort((a,b)=>Math.abs(b.difV||0)-Math.abs(a.difV||0));
+  const rows=(c.filas||[]).map(normFila).sort((a,b)=>Math.abs(b.difV??b.difS??0)-Math.abs(a.difV??a.difS??0));const ini=rows.length&&rows.every(x=>x.salio==null);
   openSheet('<h2>Cuadre '+ftime(c.ts)+'</h2><p class="hint">'+esc(c.nota||"")+'</p><div class="stats"><div class="stat"><div class="lbl">Productos</div><div class="n">'+rows.length+'</div></div><div class="stat"><div class="lbl">Ventas sin registrar</div><div class="n">'+fmt(r.faltVentas)+'</div></div><div class="stat"><div class="lbl">Dif. valorizada</div><div class="n">'+cop(r.valor)+'</div></div></div>'+
+  (ini?'<p class="hint">Conteo inicial: fija el punto de partida. «Salió» y «Ventas sin registrar» aparecen desde el siguiente cuadre; el error de stock de Loggro ya es comparable.</p>':'')+diagHtml(diagnostico(c.filas||[]))+
   '<div class="scroll" style="margin-top:12px"><table class="rep"><thead><tr><th>Producto</th><th>Esperado</th><th>Físico</th><th>Salió</th><th>Ventas Loggro</th><th>Sin registrar</th><th>Stock Loggro</th><th>Error Loggro</th></tr></thead><tbody>'+
   rows.map(x=>'<tr><td>'+esc(prodName(x.p))+'</td><td class="num">'+fmt(x.esperado)+'</td><td class="num">'+fmt(x.fisico)+'</td><td class="num">'+(x.salio==null?"—":fmt(x.salio))+'</td><td class="num">'+(x.lventas==null?"—":fmt(x.lventas))+'</td><td class="num '+cls(x.difV??null)+'">'+(x.difV==null?"—":fmt(x.difV))+'</td><td class="num">'+(x.lstock==null?"—":fmt(x.lstock))+'</td><td class="num '+cls(x.difS??null)+'">'+(x.difS==null?"—":fmt(x.difS))+'</td></tr>').join("")+
   '</tbody></table></div><div class="btns" style="margin-top:12px"><button class="btn" id="cExp">Exportar CSV</button><button class="btn sec" id="cClose">Cerrar</button><button class="btn danger" id="cDel">Borrar</button></div><div id="cConf"></div>');
@@ -526,8 +608,8 @@ function openRestore(){
     const np=Object.keys(d.prod||{}).length,nd=Object.keys(d.days||{}).length,nc=Object.keys(d.cuadres||{}).length;
     $("#rkMsg").innerHTML='<p class="hint">Copia del '+esc(String(d.fecha||"").slice(0,10))+': '+np+' productos, '+nd+' días con movimientos, '+nc+' cuadres.</p><button class="btn danger" id="rkOk">Reemplazar mis datos</button>';
     $("#rkOk").onclick=()=>{
-      if(S.backend){Object.keys(d.prod||{}).forEach(k=>store.putProd(k,d.prod[k]));Object.keys(d.days||{}).forEach(k=>store.putDay(k,d.days[k]||{items:[]}));Object.keys(d.combos||{}).forEach(k=>store.putCombo(k,d.combos[k]));Object.keys(d.recetas||{}).forEach(k=>store.putReceta(k,d.recetas[k]));Object.keys(d.cuadres||{}).forEach(k=>store.putCuadre(k,d.cuadres[k]));}
-      else{S.prod=d.prod||{};S.days=d.days||{};S.cuadres=d.cuadres||{};S.combos=d.combos||S.combos;S.recetas=d.recetas||S.recetas;saveLocal();}
+      if(S.backend){Object.keys(d.prod||{}).forEach(k=>store.putProd(k,d.prod[k]));Object.keys(d.days||{}).forEach(k=>store.putDay(k,d.days[k]||{items:[]}));Object.keys(d.combos||{}).forEach(k=>store.putCombo(k,d.combos[k]));Object.keys(d.recetas||{}).forEach(k=>store.putReceta(k,d.recetas[k]));Object.keys(d.provs||{}).forEach(k=>store.putProv(k,d.provs[k]));Object.keys(d.cuadres||{}).forEach(k=>store.putCuadre(k,d.cuadres[k]));}
+      else{S.prod=d.prod||{};S.days=d.days||{};S.cuadres=d.cuadres||{};S.combos=d.combos||S.combos;S.recetas=d.recetas||S.recetas;S.provs=d.provs||S.provs;saveLocal();}
       closeSheet();toast("Copia restaurada");render();};};
 }
 /* ---------- Eventos ---------- */
@@ -552,7 +634,8 @@ function bind(){
     main.querySelectorAll("[data-smode]").forEach(b=>b.onclick=()=>{S.smode=b.dataset.smode;render();});
   }
   if(S.view==="stock"&&S.smode==="costos")bindCostos(main);
-  if(S.view==="stock"&&S.smode!=="costos"){
+  if(S.view==="stock"&&S.smode==="pedido")bindPedido(main);
+  if(S.view==="stock"&&S.smode!=="costos"&&S.smode!=="pedido"){
     $("#sQ").oninput=e=>{S.q=e.target.value;const pos=e.target.selectionStart;render();const n=$("#sQ");n.focus();try{n.setSelectionRange(pos,pos);}catch(_){}}
     main.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{S.cat=b.dataset.cat;render();});
     main.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editProduct(b.dataset.edit));
@@ -565,13 +648,13 @@ function bind(){
       const n=Object.keys(S.draft).filter(k=>S.draft[k].fisico!==undefined&&S.draft[k].fisico!=="").length;const b=$("#cSave");b.disabled=!n||!S.canWrite;b.textContent="Guardar cuadre ("+n+" productos)";});});
     $("#cSave").onclick=()=>{const {res}=computeAll();const filas=[];
       Object.keys(S.draft).forEach(id=>{const d=S.draft[id],f=res[id];if(!f||d.fisico===undefined||d.fisico==="")return;const r=calcRow(f,d);
-        filas.push({p:id,esperado:Math.round(f.stock*100)/100,fisico:r.fis,salio:r.salio,lventas:d.lventas===""||d.lventas===undefined?null:Number(d.lventas),lstock:d.lstock===""||d.lstock===undefined?null:Number(d.lstock),difV:r.difV,difS:r.difS,difApp:r.difApp});});
+        filas.push({p:id,inicial:!f.counted,esperado:Math.round(f.stock*100)/100,fisico:r.fis,salio:r.salio,lventas:d.lventas===""||d.lventas===undefined?null:Number(d.lventas),lstock:d.lstock===""||d.lstock===undefined?null:Number(d.lstock),difV:r.difV,difS:r.difS,difApp:r.difApp});});
       if(!filas.length)return;const id="c"+Date.now();store.putCuadre(id,{ts:Date.now(),fecha:today(),nota:$("#cNota").value.trim(),filas});S.draft={};toast("Cuadre guardado: "+filas.length+" productos");render();};
     main.querySelectorAll("[data-cuadre]").forEach(b=>b.onclick=()=>showCuadre(b.dataset.cuadre));
   }
   if(S.view==="combos")bindCombos(main);
   if(S.view==="mas"){
-    $("#bkExp").onclick=()=>saveFile("respaldo-inventario-capiro-"+today()+".json",JSON.stringify({app:"inventario-capiro",version:1,fecha:new Date().toISOString(),prod:S.prod,days:S.days,cuadres:S.cuadres,combos:S.combos,recetas:S.recetas}),"application/json");
+    $("#bkExp").onclick=()=>saveFile("respaldo-inventario-capiro-"+today()+".json",JSON.stringify({app:"inventario-capiro",version:1,fecha:new Date().toISOString(),prod:S.prod,days:S.days,cuadres:S.cuadres,combos:S.combos,recetas:S.recetas,provs:S.provs}),"application/json");
     $("#bkImp").onclick=openRestore;
     $("#xStock").onclick=()=>{const {res}=computeAll();exportCSV("stock-capiro-"+today()+".csv",[["Código","Producto","Categoría","Unidad","Stock app","Mínimo","Ideal","Costo","Valor","Último conteo"]].concat(Object.keys(res).sort().map(id=>{const p=S.prod[id],f=res[id];return[id,p.nombre,p.cat,p.unidad,f.stock,p.min,p.ideal,p.costo,Math.max(0,f.stock)*(Number(p.costo)||0),f.counted?ftime(f.since):""];})));};
     $("#xCombos").onclick=exportFichas;
