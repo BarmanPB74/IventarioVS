@@ -189,3 +189,19 @@ La migración se hace en cuatro fases y Loggro sigue funcionando hasta que la al
 - [Alegra vs Loggro (blog de Alegra, favorece a Alegra)](https://blog.alegra.com/colombia/alegra-vs-loggro-colombia/)
 - [Loggro Restobar en App Store](https://apps.apple.com/ca/app/loggro-restobar/id6480476721)
 - Café Capiro, *Libro maestro de recetas y procedimientos*, edición 1.0 (documento interno, no incluido en el repositorio).
+
+## Anexo: pantalla Combos (versión 0.2)
+
+La pestaña **Combos** mide qué promoción funciona. Trae 9 combos de la carta cargados e inactivos.
+
+| Paso | Dónde | Qué haces |
+| --- | --- | --- |
+| 1. Activar | Combos → toca un combo → **Activar prueba** | La prueba arranca hoy; la semana base son los 7 días anteriores |
+| 2. Revisar | **Editar** | Precio, productos que rota y, si ya la conoces por Loggro, la semana base |
+| 3. Registrar | **Combos vendidos hoy** | Suma con + cada combo vendido, o copia al cierre el número del reporte de Loggro |
+| 4. Ticket | **Ticket promedio de hoy** | Ventas totales y número de cuentas de Loggro al cierre |
+| 5. Decidir | Ficha del combo | Después de 4 semanas completas, la app propone mantener, ajustar o retirar |
+
+**Regla de decisión:** se compara el promedio semanal de las semanas completas con la semana base en tres números: combos vendidos (debe subir), merma valorizada de sus productos rotativos (debe bajar) y ticket promedio (debe subir). Mejora en 2 o 3 → mantener; en 1 → ajustar; en 0 → retirar. Antes de la cuarta semana la lectura es provisional.
+
+La pantalla **Hoy** muestra el **Combo del día**: el combo activo que incluye el producto que vence primero. Mantén máximo 4 combos activos; la app avisa si pasas de ese número. Las fichas se exportan en **Más → Fichas de combos (CSV)**.

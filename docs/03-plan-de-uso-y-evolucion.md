@@ -73,7 +73,7 @@ Cada versión agrega una sola capacidad que se puede demostrar en el café, y so
 | Versión | Qué agrega | Cómo genera ventas | Condición para pasar a la siguiente | Esfuerzo estimado |
 | --- | --- | --- | --- | --- |
 | **0.1 Control** (hoy) | Entradas, mermas, lotes FEFO, cuadre contra Loggro, respaldo | Reduce pérdida y señala qué empujar cada día | 3 domingos seguidos con cuadre y expediente | Hecho |
-| **0.2 Promociones** | Catálogo de combos con su producto rotativo; registro diario de combos vendidos; ficha de prueba de 4 semanas dentro de la app | Mide qué combo funciona y retira el que no | Un combo con mejora en 2 de sus 3 números | 1 a 2 semanas |
+| **0.2 Promociones** | Catálogo de combos con su producto rotativo; registro diario de combos vendidos; ficha de prueba de 4 semanas dentro de la app | Mide qué combo funciona y retira el que no | Un combo con mejora en 2 de sus 3 números | Publicada el 12 de octubre de 2026 |
 | **0.3 Costos y margen** | Recetas del libro maestro con gramajes; costo por bebida y por combo; margen por producto | Precios de combo con margen verificado; foco en lo que más deja | Costo de todas las bebidas de la carta cargado | 2 semanas |
 | **0.4 Pedido inteligente** | Pedido sugerido según salida real de 4 semanas; lista por proveedor para enviar por WhatsApp | Menos agotados en el pico de jueves a sábado | 4 semanas sin agotar un producto P1–P4 | 1 semana |
 | **0.5 Importar Loggro** | Leer el reporte de ventas de Loggro en CSV para llenar el cuadre sin digitar | Ahorra 1 hora por semana que vuelve al servicio | Depende de que Loggro permita exportar; verificar antes de empezar | 1 semana |

@@ -78,7 +78,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-vis
 .btns{display:flex;gap:8px;flex-wrap:wrap}
 .hint{font-size:.85rem;color:var(--muted)}
 .empty{padding:24px 16px;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed var(--line);border-radius:14px}
-nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px));z-index:5}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(6,1fr);padding:6px 2px calc(6px + env(safe-area-inset-bottom,0px));z-index:5}
 nav.tabs button{border:0;background:none;color:var(--muted);font:700 .72rem var(--f-body);display:grid;justify-items:center;gap:2px;padding:4px 0;cursor:pointer}
 nav.tabs svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 nav.tabs button[aria-current="page"]{color:var(--leaf)}
@@ -99,6 +99,11 @@ table.rep{border-collapse:collapse;width:100%;font-size:.85rem}
 table.rep th,table.rep td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
 table.rep th:first-child,table.rep td:first-child{text-align:left;white-space:normal}
 .scroll{overflow-x:auto}
+.chk{max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:6px 10px;display:grid;gap:4px;background:var(--surface)}
+.chk label{display:flex;gap:8px;align-items:center;font-size:.9rem}
+.chk input{width:auto}
+.step{display:grid;grid-template-columns:40px 3ch 40px;gap:6px;align-items:center;text-align:center}
+.step button{padding:6px 0;font:700 1.1rem var(--f-num)}
 .guide ol{padding-left:20px;margin:6px 0}.guide li{margin:4px 0}
 @media (prefers-reduced-motion:no-preference){.toast{animation:up .2s ease-out}@keyframes up{from{opacity:0;transform:translate(-50%,8px)}}}
 </style>
@@ -116,6 +121,7 @@ table.rep th:first-child,table.rep td:first-child{text-align:left;white-space:no
   <button data-v="mover"><svg viewBox="0 0 24 24"><path d="M7 4v16M7 4l-3 3M7 4l3 3M17 20V4m0 16l-3-3m3 3l3-3"/></svg>Mover</button>
   <button data-v="stock"><svg viewBox="0 0 24 24"><path d="M4 7l8-4 8 4-8 4zM4 7v10l8 4 8-4V7M12 11v10"/></svg>Stock</button>
   <button data-v="cuadre"><svg viewBox="0 0 24 24"><path d="M9 5h10M9 12h10M9 19h10M4 5l1 1 2-2M4 12l1 1 2-2M4 19l1 1 2-2"/></svg>Cuadre</button>
+  <button data-v="combos"><svg viewBox="0 0 24 24"><path d="M5 10h11v5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5zM16 11h1.5a2.5 2.5 0 0 1 0 5H16M8 3v3M11 3v3"/></svg>Combos</button>
   <button data-v="mas"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>Más</button>
 </nav>
 <div id="sheet"></div>
@@ -125,11 +131,12 @@ table.rep th:first-child,table.rep td:first-child{text-align:left;white-space:no
 (function(){
 "use strict";
 const CATALOGO={"A-001":{"nombre":"Pastel de espinaca y queso","cat":"Hojaldres y panadería","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Vitrina","prio":3,"per":true,"activo":true},"A-002":{"nombre":"Napolitano","cat":"Hojaldres y panadería","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Vitrina","prio":3,"per":true,"activo":true},"A-003":{"nombre":"Pastel de pollo y verduras","cat":"Hojaldres y panadería","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Vitrina","prio":3,"per":true,"activo":true},"A-004":{"nombre":"Pastel de manzana","cat":"Hojaldres y panadería","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Vitrina","prio":3,"per":true,"activo":true},"A-005":{"nombre":"Palito de queso","cat":"Hojaldres y panadería","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Vitrina","prio":3,"per":true,"activo":true},"A-006":{"nombre":"Pastel de jamón y queso","cat":"Hojaldres y panadería","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Vitrina","prio":3,"per":true,"activo":true},"A-007":{"nombre":"Pastel de arequipe","cat":"Hojaldres y panadería","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Vitrina","prio":3,"per":true,"activo":true},"A-008":{"nombre":"Éclair de chocolate","cat":"Hojaldres y panadería","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Vitrina","prio":0,"per":true,"activo":true},"A-009":{"nombre":"Éclair de pistacho","cat":"Hojaldres y panadería","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Vitrina","prio":0,"per":true,"activo":true},"A-010":{"nombre":"Croissant de chocolate","cat":"Hojaldres y panadería","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Vitrina","prio":0,"per":true,"activo":true},"A-011":{"nombre":"Sándwich panini","cat":"Hojaldres y panadería","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Vitrina","prio":0,"per":true,"activo":true},"A-012":{"nombre":"Almojábana","cat":"Hojaldres y panadería","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Vitrina","prio":4,"per":true,"activo":true},"AD-001":{"nombre":"Mermelada","cat":"Postres y adiciones","unidad":"g","min":0,"ideal":0,"costo":0,"ubic":"","prio":0,"per":true,"activo":true},"D-001":{"nombre":"Volcán de chocolate","cat":"Postres y adiciones","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Congelador","prio":0,"per":true,"activo":true},"E-001":{"nombre":"Hatsu Blanco","cat":"Bebidas envasadas","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera","prio":0,"per":true,"activo":true},"E-002":{"nombre":"Hatsu Amarillo","cat":"Bebidas envasadas","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera","prio":0,"per":true,"activo":true},"E-003":{"nombre":"Hatsu Azul","cat":"Bebidas envasadas","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera","prio":0,"per":true,"activo":true},"E-004":{"nombre":"Hatsu Negro","cat":"Bebidas envasadas","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera","prio":0,"per":true,"activo":true},"E-005":{"nombre":"Stella Artois","cat":"Cervezas","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera","prio":2,"per":true,"activo":true},"E-006":{"nombre":"Club Colombia Dorada","cat":"Cervezas","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera","prio":2,"per":true,"activo":true},"E-007":{"nombre":"Tres Cordilleras Rosada","cat":"Cervezas","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera","prio":2,"per":true,"activo":true},"E-008":{"nombre":"Corona Cero","cat":"Cervezas","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera","prio":2,"per":true,"activo":true},"E-009":{"nombre":"Coronita","cat":"Cervezas","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera","prio":2,"per":true,"activo":true},"E-010":{"nombre":"Refajo","cat":"Cervezas","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera","prio":2,"per":true,"activo":true},"E-011":{"nombre":"Colombiana","cat":"Bebidas envasadas","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera","prio":0,"per":true,"activo":true},"E-012":{"nombre":"Soda","cat":"Bebidas envasadas","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera","prio":0,"per":true,"activo":true},"E-013":{"nombre":"Coca-Cola Zero","cat":"Bebidas envasadas","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera","prio":0,"per":true,"activo":true},"E-014":{"nombre":"Coca-Cola Original","cat":"Bebidas envasadas","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera","prio":0,"per":true,"activo":true},"E-015":{"nombre":"Agua con gas","cat":"Bebidas envasadas","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera","prio":0,"per":true,"activo":true},"E-016":{"nombre":"Agua sin gas","cat":"Bebidas envasadas","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera","prio":0,"per":true,"activo":true},"FR-001":{"nombre":"Fresa","cat":"Frutas y siropes","unidad":"g","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"FR-002":{"nombre":"Mora","cat":"Frutas y siropes","unidad":"g","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"FR-003":{"nombre":"Pulpa de maracuyá","cat":"Frutas y siropes","unidad":"g","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"FR-004":{"nombre":"Lychee","cat":"Frutas y siropes","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"FR-005":{"nombre":"Naranja","cat":"Frutas y siropes","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"IN-001":{"nombre":"Café en grano para barra","cat":"Insumos de barra","unidad":"g","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"IN-002":{"nombre":"Leche entera","cat":"Insumos de barra","unidad":"l","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"IN-003":{"nombre":"Leche de almendras","cat":"Insumos de barra","unidad":"l","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"IN-004":{"nombre":"Cocoa","cat":"Insumos de barra","unidad":"g","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"IN-005":{"nombre":"Milo","cat":"Insumos de barra","unidad":"g","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"IN-006":{"nombre":"Chai en polvo","cat":"Insumos de barra","unidad":"g","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"IN-007":{"nombre":"Matcha","cat":"Insumos de barra","unidad":"g","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"IN-008":{"nombre":"Azúcar (almíbar)","cat":"Insumos de barra","unidad":"g","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":false,"activo":true},"IN-009":{"nombre":"Baileys","cat":"Insumos de barra","unidad":"ml","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":false,"activo":true},"IN-010":{"nombre":"Amaretto","cat":"Insumos de barra","unidad":"ml","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":false,"activo":true},"IN-011":{"nombre":"Licor de caramelo","cat":"Insumos de barra","unidad":"ml","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":false,"activo":true},"IN-012":{"nombre":"Naturio Frutos amarillos","cat":"Insumos de barra","unidad":"sobre","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"IN-013":{"nombre":"Naturio Frutos rojos","cat":"Insumos de barra","unidad":"sobre","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"IN-014":{"nombre":"Naturio Frutos verdes","cat":"Insumos de barra","unidad":"sobre","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"IN-015":{"nombre":"Naturio Frutos tropicales","cat":"Insumos de barra","unidad":"sobre","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"IN-016":{"nombre":"Cold brew preparado (B-002)","cat":"Insumos de barra","unidad":"ml","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"IN-017":{"nombre":"Almíbar simple preparado (B-001)","cat":"Insumos de barra","unidad":"ml","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"L-001":{"nombre":"Queso madurado Arándanos","cat":"Lácteos y refrigerados","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera principal","prio":1,"per":true,"activo":true},"L-002":{"nombre":"Queso madurado Café","cat":"Lácteos y refrigerados","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera principal","prio":1,"per":true,"activo":true},"L-003":{"nombre":"Queso madurado Vino","cat":"Lácteos y refrigerados","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera principal","prio":1,"per":true,"activo":true},"L-004":{"nombre":"Queso madurado Ciruela","cat":"Lácteos y refrigerados","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera principal","prio":1,"per":true,"activo":true},"L-005":{"nombre":"Queso madurado Natural","cat":"Lácteos y refrigerados","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera principal","prio":1,"per":true,"activo":true},"L-006":{"nombre":"Rollo mozzarella con jamón serrano","cat":"Lácteos y refrigerados","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera principal","prio":1,"per":true,"activo":true},"L-007":{"nombre":"Arroz con leche","cat":"Lácteos y refrigerados","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera principal","prio":1,"per":true,"activo":true},"L-008":{"nombre":"Miguelucho","cat":"Lácteos y refrigerados","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera principal","prio":1,"per":true,"activo":true},"L-009":{"nombre":"Queso crema","cat":"Lácteos y refrigerados","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera principal","prio":1,"per":true,"activo":true},"L-010":{"nombre":"Yogur griego 500 g","cat":"Lácteos y refrigerados","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera principal","prio":1,"per":true,"activo":true},"L-011":{"nombre":"Yogur griego 1000 g","cat":"Lácteos y refrigerados","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera principal","prio":1,"per":true,"activo":true},"L-012":{"nombre":"Yogur griego 300 g","cat":"Lácteos y refrigerados","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera principal","prio":1,"per":true,"activo":true},"L-013":{"nombre":"Yogur griego personal Arándanos 180 g","cat":"Lácteos y refrigerados","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera principal","prio":1,"per":true,"activo":true},"L-014":{"nombre":"Yogur griego personal Gulupa 180 g","cat":"Lácteos y refrigerados","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Nevera principal","prio":1,"per":true,"activo":true},"L-015":{"nombre":"Helado (bolas para adición)","cat":"Postres y adiciones","unidad":"bola","min":0,"ideal":0,"costo":0,"ubic":"Congelador","prio":0,"per":true,"activo":true},"PN-001":{"nombre":"Pan de masa madre","cat":"Hojaldres y panadería","unidad":"und","min":0,"ideal":0,"costo":0,"ubic":"Vitrina","prio":0,"per":true,"activo":true},"R-001":{"nombre":"Café Capiro grano 500 g","cat":"Café empacado","unidad":"bolsa","min":0,"ideal":0,"costo":0,"ubic":"Estante","prio":0,"per":true,"activo":true},"R-002":{"nombre":"Café Capiro molido 500 g","cat":"Café empacado","unidad":"bolsa","min":0,"ideal":0,"costo":0,"ubic":"Estante","prio":0,"per":true,"activo":true},"R-003":{"nombre":"Café Capiro grano 250 g","cat":"Café empacado","unidad":"bolsa","min":0,"ideal":0,"costo":0,"ubic":"Estante","prio":0,"per":true,"activo":true},"R-004":{"nombre":"Café Capiro molido 250 g","cat":"Café empacado","unidad":"bolsa","min":0,"ideal":0,"costo":0,"ubic":"Estante","prio":0,"per":true,"activo":true},"SR-001":{"nombre":"Sirope de fresa","cat":"Frutas y siropes","unidad":"ml","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"SR-002":{"nombre":"Sirope frutos amarillos","cat":"Frutas y siropes","unidad":"ml","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"SR-003":{"nombre":"Sirope de lychee","cat":"Frutas y siropes","unidad":"ml","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"SR-004":{"nombre":"Sirope de café","cat":"Frutas y siropes","unidad":"ml","min":0,"ideal":0,"costo":0,"ubic":"Barra","prio":0,"per":true,"activo":true},"T-001":{"nombre":"Torta de zanahoria","cat":"Tortas","unidad":"porción","min":0,"ideal":0,"costo":0,"ubic":"Vitrina","prio":0,"per":true,"activo":true},"T-002":{"nombre":"Torta limón y amapola","cat":"Tortas","unidad":"porción","min":0,"ideal":0,"costo":0,"ubic":"Vitrina","prio":0,"per":true,"activo":true},"T-003":{"nombre":"Torta chocolate semiamargo","cat":"Tortas","unidad":"porción","min":0,"ideal":0,"costo":0,"ubic":"Vitrina","prio":0,"per":true,"activo":true},"T-004":{"nombre":"Torta almojábana con bocadillo y queso","cat":"Tortas","unidad":"porción","min":0,"ideal":0,"costo":0,"ubic":"Vitrina","prio":0,"per":true,"activo":true},"V-001":{"nombre":"Santa Carolina Blanco","cat":"Vinos","unidad":"botella","min":0,"ideal":0,"costo":0,"ubic":"Bodega","prio":0,"per":false,"activo":true},"V-002":{"nombre":"Santa Carolina Rosado","cat":"Vinos","unidad":"botella","min":0,"ideal":0,"costo":0,"ubic":"Bodega","prio":0,"per":false,"activo":true},"V-003":{"nombre":"Santa Carolina Tinto","cat":"Vinos","unidad":"botella","min":0,"ideal":0,"costo":0,"ubic":"Bodega","prio":0,"per":false,"activo":true},"V-004":{"nombre":"Ramón Bilbao Blanco","cat":"Vinos","unidad":"botella","min":0,"ideal":0,"costo":0,"ubic":"Bodega","prio":0,"per":false,"activo":true},"V-005":{"nombre":"Ramón Bilbao Rosado","cat":"Vinos","unidad":"botella","min":0,"ideal":0,"costo":0,"ubic":"Bodega","prio":0,"per":false,"activo":true},"V-006":{"nombre":"Ramón Bilbao Tinto","cat":"Vinos","unidad":"botella","min":0,"ideal":0,"costo":0,"ubic":"Bodega","prio":0,"per":false,"activo":true},"V-007":{"nombre":"La Celia Tinto","cat":"Vinos","unidad":"botella","min":0,"ideal":0,"costo":0,"ubic":"Bodega","prio":0,"per":false,"activo":true},"V-008":{"nombre":"Finca Las Moras Blanco","cat":"Vinos","unidad":"botella","min":0,"ideal":0,"costo":0,"ubic":"Bodega","prio":0,"per":false,"activo":true},"V-009":{"nombre":"Finca Las Moras Rosado","cat":"Vinos","unidad":"botella","min":0,"ideal":0,"costo":0,"ubic":"Bodega","prio":0,"per":false,"activo":true},"V-010":{"nombre":"Finca Las Moras Tinto","cat":"Vinos","unidad":"botella","min":0,"ideal":0,"costo":0,"ubic":"Bodega","prio":0,"per":false,"activo":true},"V-011":{"nombre":"Rosaleda Tinto","cat":"Vinos","unidad":"botella","min":0,"ideal":0,"costo":0,"ubic":"Bodega","prio":0,"per":false,"activo":true}};
+const COMBOS_BASE={"cb-01":{"nombre":"Mañana de vivero","contenido":"Tinto de goteo (C-011) o americano (C-008) + almojábana (A-012)","rot":["A-012"],"precio":0,"activo":false,"inicio":"","base":{"v":null,"m":null,"t":null},"orden":1},"cb-02":{"nombre":"Pausa con proteína","contenido":"Capuchino (C-003) o latte (C-009) + hojaldre salado tibio","rot":["A-001","A-003","A-006"],"precio":0,"activo":false,"inicio":"","base":{"v":null,"m":null,"t":null},"orden":2},"cb-03":{"nombre":"Ligero y fresco","contenido":"Yogur griego personal + infusión Naturio","rot":["L-013","L-014"],"precio":0,"activo":false,"inicio":"","base":{"v":null,"m":null,"t":null},"orden":3},"cb-04":{"nombre":"Dulce de la tierra","contenido":"Tinto de goteo + Miguelucho o arroz con leche","rot":["L-007","L-008"],"precio":0,"activo":false,"inicio":"","base":{"v":null,"m":null,"t":null},"orden":4},"cb-05":{"nombre":"Fresco y salado","contenido":"Cerveza + palito de queso o pastel de pollo","rot":["E-005","E-006","E-007","E-008","E-009","E-010","A-005","A-003"],"precio":0,"activo":false,"inicio":"","base":{"v":null,"m":null,"t":null},"orden":5},"cb-06":{"nombre":"Tabla Capiro para dos","contenido":"2 copas de vino tinto o 1 botella + queso madurado El Tabor","rot":["L-001","L-002","L-003","L-004","L-005"],"precio":0,"activo":false,"inicio":"","base":{"v":null,"m":null,"t":null},"orden":6},"cb-07":{"nombre":"Volcán para compartir","contenido":"Volcán con helado (D-002) + 2 bebidas calientes","rot":["D-001"],"precio":0,"activo":false,"inicio":"","base":{"v":null,"m":null,"t":null},"orden":7},"cb-08":{"nombre":"Mesa de cuatro","contenido":"4 bebidas + 2 hojaldres + 1 torta","rot":["A-001","A-002","A-003","A-004","A-005","A-006","A-007","T-001","T-002","T-003","T-004"],"precio":0,"activo":false,"inicio":"","base":{"v":null,"m":null,"t":null},"orden":8},"cb-09":{"nombre":"Llévate el origen","contenido":"Bebida consumida + bolsa de 250 g de Café Capiro","rot":["R-003","R-004"],"precio":0,"activo":false,"inicio":"","base":{"v":null,"m":null,"t":null},"orden":9}};
 const CATS=["Lácteos y refrigerados","Cervezas","Hojaldres y panadería","Tortas","Bebidas envasadas","Vinos","Café empacado","Insumos de barra","Frutas y siropes","Postres y adiciones"];
 const TIPOS={entrada:"Entrada",merma:"Merma",consumo:"Consumo",venta:"Venta",ajuste:"Ajuste"};
 const PRIO={1:"P1 Lácteo",2:"P2 Cerveza",3:"P3 Hojaldre",4:"P4 Almojábana"};
 const MERMA=["Vencido","Dañado o golpeado","Preparación fallida","Caída / derrame","Degustación","Otro"];
-const S={prod:{},days:{},cuadres:{},view:"hoy",cat:"Todas",q:"",mov:{t:"entrada",p:"",qty:1,lote:"",vence:"",costo:"",motivo:MERMA[0],nota:"",filtro:""},ccat:"Lácteos y refrigerados",draft:{},backend:null,pendingRender:false,canWrite:true};
+const S={prod:{},days:{},cuadres:{},combos:{},view:"hoy",cat:"Todas",q:"",mov:{t:"entrada",p:"",qty:1,lote:"",vence:"",costo:"",motivo:MERMA[0],nota:"",filtro:""},ccat:"Lácteos y refrigerados",draft:{},backend:null,pendingRender:false,canWrite:true};
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt=n=>{n=Number(n)||0;return Math.abs(n%1)>0?n.toFixed(1).replace(".",","):String(Math.round(n));};
@@ -146,14 +153,15 @@ function toast(m){const t=$("#toast");t.innerHTML='<div class="toast" role="stat
 const LKEY="capiro-inventario-v1";
 let chain=Promise.resolve();
 function enqueue(fn){chain=chain.then(fn).catch(e=>{console.error(e);toast(e&&e.code==="quota_exceeded"?"Base llena: exporta y limpia movimientos antiguos.":"No se pudo guardar. Revisa la conexión e intenta de nuevo.");});return chain;}
-function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({prod:S.prod,days:S.days,cuadres:S.cuadres}));}catch(e){}}
+function saveLocal(){try{localStorage.setItem(LKEY,JSON.stringify({prod:S.prod,days:S.days,cuadres:S.cuadres,combos:S.combos}));}catch(e){}}
 function loadLocal(){let d=null;try{d=JSON.parse(localStorage.getItem(LKEY)||"null");}catch(e){}
-  if(d){S.prod=d.prod||{};S.days=d.days||{};S.cuadres=d.cuadres||{};}
-  else{S.prod=JSON.parse(JSON.stringify(CATALOGO));saveLocal();S.firstRun=true;}}
+  if(d){S.prod=d.prod||{};S.days=d.days||{};S.cuadres=d.cuadres||{};S.combos=d.combos||JSON.parse(JSON.stringify(COMBOS_BASE));if(!d.combos)saveLocal();}
+  else{S.prod=JSON.parse(JSON.stringify(CATALOGO));S.combos=JSON.parse(JSON.stringify(COMBOS_BASE));saveLocal();S.firstRun=true;}}
 const store={
   putProd(id,data){S.prod[id]=data;if(S.backend)return enqueue(()=>S.backend.collection("productos").doc(id).set(data));saveLocal();render();},
   delProd(id){delete S.prod[id];if(S.backend)return enqueue(()=>S.backend.collection("productos").doc(id).delete());saveLocal();render();},
-  putDay(date,items){S.days[date]={items};if(S.backend)return enqueue(()=>S.backend.collection("dias").doc(date).set({items}));saveLocal();render();},
+  putDay(date,day){S.days[date]=day;if(S.backend)return enqueue(()=>S.backend.collection("dias").doc(date).set(day));saveLocal();render();},
+  putCombo(id,data){S.combos[id]=data;if(S.backend)return enqueue(()=>S.backend.collection("combos").doc(id).set(data));saveLocal();render();},
   putCuadre(id,data){S.cuadres[id]=data;if(S.backend)return enqueue(()=>S.backend.collection("cuadres").doc(id).set(data));saveLocal();render();},
   delCuadre(id){delete S.cuadres[id];if(S.backend)return enqueue(()=>S.backend.collection("cuadres").doc(id).delete());saveLocal();render();}
 };
@@ -165,16 +173,18 @@ async function connect(){
   if(!db){loadLocal();setMode("local",window.AndroidApp?"En este teléfono":"Solo este navegador");S.ready=true;render();if(S.firstRun)toast("Catálogo del libro maestro cargado: 91 productos");return;}
   S.backend=db;setMode("on","Sincronizado");
   try{const u=window.claude&&window.claude.use?await window.claude.use("user"):null;if(u){const c=await u.can("data.write");if(c===false)S.canWrite=false;}}catch(e){}
-  const loaded={p:false,d:false,c:false};
+  const loaded={p:false,d:false,c:false,k:false};
   const onErr=e=>{setMode("local","Sin conexión");console.error(e);};
   db.collection("productos").onSnapshot(s=>{S.prod=snapToMap(s);loaded.p=true;maybe();},onErr);
   db.collection("dias").onSnapshot(s=>{S.days=snapToMap(s);loaded.d=true;maybe();},onErr);
   db.collection("cuadres").onSnapshot(s=>{S.cuadres=snapToMap(s);loaded.c=true;maybe();},onErr);
-  function maybe(){if(loaded.p&&loaded.d&&loaded.c){S.ready=true;softRender();}}
+  db.collection("combos").onSnapshot(s=>{S.combos=snapToMap(s);loaded.k=true;maybe();},onErr);
+  function maybe(){if(loaded.p&&loaded.d&&loaded.c&&loaded.k){S.ready=true;softRender();}}
 }
 function softRender(){const a=document.activeElement;if(a&&$("#main").contains(a)&&/INPUT|SELECT|TEXTAREA/.test(a.tagName)){S.pendingRender=true;return;}render();}
 document.addEventListener("focusout",()=>setTimeout(()=>{if(S.pendingRender){S.pendingRender=false;softRender();}},150));
 
+function saveDay(date,patch){store.putDay(date,Object.assign({items:[]},S.days[date]||{},patch));}
 /* ---------- Cálculos ---------- */
 function allMovs(){const out=[];Object.keys(S.days).forEach(k=>{(S.days[k].items||[]).forEach(m=>out.push(Object.assign({day:k},m)));});return out.sort((a,b)=>a.ts-b.ts);}
 function cuadreList(){return Object.keys(S.cuadres).map(id=>Object.assign({id},S.cuadres[id])).sort((a,b)=>b.ts-a.ts);}
@@ -201,7 +211,7 @@ function mission(){const d=new Date().getDay();return[
 function render(){
   document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-current",b.dataset.v===S.view?"page":"false"));
   if(!S.ready){return;}
-  const V={hoy:vHoy,mover:vMover,stock:vStock,cuadre:vCuadre,mas:vMas}[S.view];
+  const V={hoy:vHoy,mover:vMover,stock:vStock,cuadre:vCuadre,combos:vCombos,mas:vMas}[S.view];
   $("#main").innerHTML=V();
   bind();
 }
@@ -219,6 +229,7 @@ function vHoy(){
   const mesIni=today().slice(0,7);let merma=0;movs.forEach(x=>{if(x.t==="merma"&&x.day.startsWith(mesIni))merma+=(Number(x.q)||0)*(Number((S.prod[x.p]||{}).costo)||0);});
   let h='<div class="mission"><span class="lbl">Misión de hoy</span><b>'+esc(m.t)+'</b><span>'+esc(m.x)+'</span></div>';
   h+='<div class="stats"><div class="stat"><div class="lbl">Valor stock</div><div class="n">'+cop(valor)+'</div></div><div class="stat"><div class="lbl">Merma mes</div><div class="n">'+cop(merma)+'</div></div><div class="stat"><div class="lbl">Por vencer</div><div class="n">'+venc.length+'</div></div></div>';
+  h+=comboDelDia(venc,bajos);
   h+='<h2>Sacar primero (PEPS / FEFO)</h2>';
   if(!venc.length)h+='<div class="alert ok"><span class="dot"></span><div class="t"><b>Nada vence en los próximos 5 días</b><div>Registra lote y vencimiento en cada entrada para que esto funcione.</div></div></div>';
   venc.slice(0,12).forEach(v=>{const cls=v.dd<=2?"bad":"warn";const txt=v.dd<0?"Vencido hace "+(-v.dd)+" d":v.dd===0?"Vence hoy":"Vence en "+v.dd+" d";
@@ -291,7 +302,7 @@ function resCells(id,f,d){const r=calcRow(f,d);const v=n=>n===null?"—":(n>0?"+
 function cuadreSummary(c){let valor=0,faltVentas=0;(c.filas||[]).forEach(r=>{const cost=Number((S.prod[r.p]||{}).costo)||0;if(typeof r.difApp==="number")valor+=r.difApp*cost;if(typeof r.difV==="number"&&r.difV>0)faltVentas+=r.difV;});return{valor,faltVentas};}
 function vMas(){
   const movs=allMovs().slice().reverse().slice(0,60);
-  let h='<h2>Exportar</h2><div class="btns"><button class="btn sec" id="xStock">Stock actual (CSV)</button><button class="btn sec" id="xMov">Movimientos (CSV)</button></div><p class="hint">Abre los CSV en Excel o Google Sheets para mostrarle al dueño las diferencias con Loggro.</p>';
+  let h='<h2>Exportar</h2><div class="btns"><button class="btn sec" id="xStock">Stock actual (CSV)</button><button class="btn sec" id="xMov">Movimientos (CSV)</button><button class="btn sec" id="xCombos">Fichas de combos (CSV)</button></div><p class="hint">Abre los CSV en Excel o Google Sheets para mostrarle al dueño las diferencias con Loggro.</p>';
   h+='<h2>Copia de seguridad</h2><p class="hint">'+(S.backend?'Tus datos ya están en la nube. La copia sirve para pasarlos a la app de Android.':'Tus datos viven solo en este teléfono. Si desinstalas la app o borras sus datos, se pierden. Haz una copia cada domingo.')+'</p><div class="btns"><button class="btn" id="bkExp">Guardar copia</button><button class="btn sec" id="bkImp">Restaurar copia</button></div>';
   h+='<h2>Últimos movimientos</h2>';
   h+=movs.length?'<div class="list">'+movs.map(x=>'<div class="row" style="cursor:default"><div><div class="nm">'+esc(prodName(x.p))+'</div><div class="sub">'+ftime(x.ts)+' · '+TIPOS[x.t]+(x.motivo?" · "+esc(x.motivo):"")+(x.nota?" · "+esc(x.nota):"")+'</div></div><span class="num">'+(sign(x)>0?"+":"")+fmt(sign(x))+'</span></div>').join("")+'</div>':'<div class="empty">Sin movimientos todavía.</div>';
@@ -299,6 +310,90 @@ function vMas(){
   h+='<h2>Estado</h2><p class="hint">'+(S.backend?"Los datos se guardan en la nube de este artifact y se ven desde cualquier dispositivo con tu cuenta.":"Modo local: los datos viven solo en este navegador. Abre la app con tu cuenta de Claude para sincronizar.")+'</p>';
   return h;
 }
+
+/* ---------- Combos (versión 0.2) ---------- */
+const addDays=(iso,n)=>{const d=new Date(iso+"T00:00:00");d.setDate(d.getDate()+n);return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());};
+function comboList(){return Object.keys(S.combos).map(id=>Object.assign({id},S.combos[id])).sort((a,b)=>((b.activo?1:0)-(a.activo?1:0))||((a.orden||99)-(b.orden||99))||String(a.nombre).localeCompare(String(b.nombre)));}
+function rangeStats(c,a,b){let v=0,m=0,tv=0,tc=0;
+  for(let d=a;d<=b;d=addDays(d,1)){const day=S.days[d];if(!day)continue;
+    v+=Number((day.combos||{})[c.id])||0;
+    if(Number(day.tc)>0){tv+=Number(day.tv)||0;tc+=Number(day.tc)||0;}
+    (day.items||[]).forEach(x=>{if(x.t==="merma"&&(c.rot||[]).includes(x.p))m+=(Number(x.q)||0)*(Number((S.prod[x.p]||{}).costo)||0);});}
+  return{v,m,t:tc?tv/tc:null};}
+function ficha(c){if(!c.inicio)return null;const hoy=today();
+  const auto=rangeStats(c,addDays(c.inicio,-7),addDays(c.inicio,-1));const b=c.base||{};const has=k=>b[k]!==null&&b[k]!==undefined&&b[k]!=="";
+  const B={v:has("v")?Number(b.v):auto.v,m:has("m")?Number(b.m):auto.m,t:has("t")?Number(b.t):auto.t};
+  const weeks=[];for(let w=0;w<4;w++){const a=addDays(c.inicio,7*w),e=addDays(a,6);if(a>hoy)break;const st=rangeStats(c,a,e<hoy?e:hoy);st.parcial=e>=hoy;st.a=a;st.e=e;st.n=w+1;weeks.push(st);}
+  const full=weeks.filter(w=>!w.parcial);let wins=0,crit=0,av=null,am=null,at=null;
+  if(full.length){const avg=k=>{const vals=full.map(w=>w[k]).filter(x=>x!==null);return vals.length?vals.reduce((p,q)=>p+q,0)/vals.length:null;};
+    av=avg("v");am=avg("m");at=avg("t");
+    crit++;if(av>B.v)wins++;
+    crit++;if(am<B.m)wins++;
+    if(at!==null&&B.t!==null){crit++;if(at>B.t)wins++;}}
+  const done=full.length>=4;const dec=!full.length?null:wins>=2?"Mantener":wins===1?"Ajustar":"Retirar";
+  return{B,weeks,full,wins,crit,done,dec,av,am,at};}
+function decPill(f){if(!f||!f.dec)return'<span class="pill mut">Sin datos</span>';const cls=f.dec==="Mantener"?"p":f.dec==="Ajustar"?"warn":"bad";return'<span class="pill '+cls+'">'+(f.done?"":"Va: ")+f.dec+'</span>';}
+function comboDelDia(venc,bajos){const act=comboList().filter(c=>c.activo);
+  if(!act.length)return'<div class="ct" style="margin-top:12px"><span class="lbl">Combo del día</span><b>Sin combos activos</b><div class="hint">Activa hasta 4 combos en la pestaña Combos para que la app te diga cuál empujar hoy.</div></div>';
+  for(const v of venc){const c=act.find(c=>(c.rot||[]).includes(v.id));if(c){const txt=v.dd<0?"vencido":v.dd===0?"vence hoy":"vence en "+v.dd+" d";
+    return'<div class="ct" style="margin-top:12px"><span class="lbl">Combo del día</span><b>'+esc(c.nombre)+'</b><div class="hint">Empuja '+esc(prodName(v.id))+' ('+txt+'). '+esc(c.contenido||"")+'</div></div>';}}
+  return'<div class="ct" style="margin-top:12px"><span class="lbl">Combo del día</span><b>'+esc(act[0].nombre)+'</b><div class="hint">Ningún producto de tus combos vence pronto; ofrece el combo con más margen.</div></div>';}
+function vCombos(){const act=comboList().filter(c=>c.activo);const d=S.days[today()]||{};const cnt=d.combos||{};
+  let h='<h2>Combos vendidos hoy</h2>';
+  if(!act.length)h+='<div class="empty">No hay combos activos. Abre uno de la lista y toca <b>Activar prueba</b>.</div>';
+  else{if(act.length>4)h+='<div class="alert warn"><span class="dot"></span><div class="t"><b>'+act.length+' combos activos</b><div>Máximo 4 visibles a la vez: con más opciones el cliente decide peor y no sabrás cuál funciona.</div></div></div>';
+    h+='<div class="list">'+act.map(c=>'<div class="row" style="cursor:default"><div style="min-width:0"><div class="nm">'+esc(c.nombre)+'</div><div class="sub">'+esc(c.contenido||"")+'</div></div><div class="step"><button class="btn sec" data-cstep="'+esc(c.id)+'" data-d="-1" aria-label="Restar">−</button><b class="num">'+(Number(cnt[c.id])||0)+'</b><button class="btn sec" data-cstep="'+esc(c.id)+'" data-d="1" aria-label="Sumar">+</button></div></div>').join("")+'</div>';
+    h+='<p class="hint">Copia al cierre las unidades del reporte de ventas de Loggro, o súmalas a medida que vendes.</p>';}
+  const tk=Number(d.tc)>0?(Number(d.tv)||0)/Number(d.tc):null;
+  h+='<h3>Ticket promedio de hoy</h3><div class="form"><div class="grid2"><label class="f" for="tkV">Ventas del día en Loggro ($)<input id="tkV" type="number" inputmode="decimal" value="'+esc(d.tv??"")+'"></label><label class="f" for="tkC">Número de cuentas<input id="tkC" type="number" inputmode="numeric" value="'+esc(d.tc??"")+'"></label></div><button class="btn" id="tkSave"'+(S.canWrite?"":" disabled")+'>Guardar ticket</button>'+(tk!==null?'<p class="hint">Ticket promedio: <b class="num">'+cop(tk)+'</b></p>':'')+'</div>';
+  h+='<h2>Fichas de prueba</h2><p class="hint">Cada combo se prueba 4 semanas contra su semana base y se conserva si mejora al menos 2 de 3 números: vendidos, merma de su producto rotativo y ticket promedio.</p>';
+  h+='<div class="btns" style="margin-bottom:8px"><button class="btn" id="cbNew"'+(S.canWrite?"":" disabled")+'>Nuevo combo</button></div>';
+  const all=comboList();
+  h+=all.length?'<div class="list">'+all.map(c=>{const f=c.activo?ficha(c):null;let sub;
+    if(!c.activo)sub="Inactivo"+(c.inicio?" · prueba desde "+fdate(c.inicio):"");
+    else if(!c.inicio)sub="Activo, sin fecha de inicio";
+    else if(!f.weeks.length)sub="Empieza el "+fdate(c.inicio);
+    else{const w=f.weeks[f.weeks.length-1];sub=(f.done?"Prueba terminada":"Semana "+w.n+" de 4")+" · "+fmt(w.v)+" vendidos esta semana"+(f.crit?" · mejora "+f.wins+" de "+f.crit:"");}
+    return'<button class="row" data-ficha="'+esc(c.id)+'"><div style="min-width:0"><div class="nm">'+esc(c.nombre)+'</div><div class="sub">'+esc(sub)+'</div></div><div>'+(c.activo?decPill(f):'<span class="pill mut">Inactivo</span>')+'</div></button>';}).join("")+'</div>':'<div class="empty">No hay combos todavía.</div>';
+  return h;}
+function bindCombos(main){
+  main.querySelectorAll("[data-cstep]").forEach(b=>b.onclick=()=>{const t=today();const cur=Object.assign({},(S.days[t]||{}).combos||{});const id=b.dataset.cstep;cur[id]=Math.max(0,(Number(cur[id])||0)+Number(b.dataset.d));saveDay(t,{combos:cur});});
+  $("#tkSave").onclick=()=>{const v=Number($("#tkV").value),c=Number($("#tkC").value);if(!(c>0)||!(v>=0)){toast("Escribe las ventas y un número de cuentas mayor que cero.");return;}saveDay(today(),{tv:v,tc:c});toast("Ticket guardado: "+cop(v/c));};
+  $("#cbNew").onclick=()=>editCombo(null);
+  main.querySelectorAll("[data-ficha]").forEach(b=>b.onclick=()=>showFicha(b.dataset.ficha));}
+function showFicha(id){const c=Object.assign({id},S.combos[id]||{});const f=ficha(c);
+  let h='<h2>'+esc(c.nombre)+'</h2><p class="hint">'+esc(c.contenido||"")+(Number(c.precio)>0?' · precio '+cop(c.precio):'')+'</p>';
+  h+='<p class="hint">Productos que rota: '+esc((c.rot||[]).map(prodName).join(", ")||"ninguno")+'</p>';
+  if(!f)h+='<div class="empty">La prueba empieza cuando toques <b>Activar prueba</b>.</div>';
+  else{const row=(lbl,fechas,st,cls)=>'<tr><td>'+lbl+'</td><td>'+fechas+'</td><td class="num">'+fmt(st.v)+'</td><td class="num">'+cop(st.m)+'</td><td class="num">'+(st.t===null?"—":cop(st.t))+'</td></tr>';
+    h+='<div class="scroll"><table class="rep"><thead><tr><th>Semana</th><th>Fechas</th><th>Vendidos</th><th>Merma rotativo</th><th>Ticket</th></tr></thead><tbody>'+row("Base",fdate(addDays(c.inicio,-7))+"–"+fdate(addDays(c.inicio,-1)),f.B)+f.weeks.map(w=>row(w.n+(w.parcial?" (en curso)":""),fdate(w.a)+"–"+fdate(w.e),w)).join("")+'</tbody></table></div>';
+    h+='<div class="ct"><span class="lbl">'+(f.done?"Decisión":"Lectura provisional")+'</span><b>'+(f.dec?f.dec:"Esperando la primera semana completa")+'</b><div class="hint">'+(f.crit?'Mejora en '+f.wins+' de '+f.crit+' números frente a la base (promedio de '+f.full.length+' semana'+(f.full.length>1?"s":"")+' completa'+(f.full.length>1?"s":"")+').':'')+(f.B.t===null?' Sin ticket base: registra ventas y cuentas para comparar el ticket.':'')+'</div></div>';}
+  h+='<div class="btns" style="margin-top:12px"><button class="btn" id="fAct">'+(c.activo?"Pausar prueba":"Activar prueba")+'</button><button class="btn sec" id="fEdit">Editar</button><button class="btn sec" id="fClose">Cerrar</button></div>';
+  openSheet(h);
+  $("#fClose").onclick=closeSheet;$("#fEdit").onclick=()=>editCombo(id);
+  $("#fAct").onclick=()=>{const n=Object.assign({},S.combos[id]);n.activo=!n.activo;if(n.activo&&!n.inicio)n.inicio=today();store.putCombo(id,n);closeSheet();toast(n.activo?"Prueba activa desde "+fdate(n.inicio):"Prueba pausada");};}
+function editCombo(id){const c=id?S.combos[id]:{nombre:"",contenido:"",rot:[],precio:0,activo:false,inicio:"",base:{v:null,m:null,t:null},orden:99};const b=c.base||{};
+  const opts=Object.keys(S.prod).filter(k=>S.prod[k].activo!==false).sort((x,y)=>S.prod[x].nombre.localeCompare(S.prod[y].nombre));
+  openSheet('<h2>'+(id?"Editar combo":"Nuevo combo")+'</h2><form id="cbForm" class="form">'+
+    '<label class="f" for="cbNom">Nombre<input id="cbNom" value="'+esc(c.nombre)+'" required></label>'+
+    '<label class="f" for="cbCont">Contenido<input id="cbCont" value="'+esc(c.contenido||"")+'" placeholder="Bebida + acompañamiento"></label>'+
+    '<div class="grid2"><label class="f" for="cbPrecio">Precio del combo ($)<input id="cbPrecio" type="number" inputmode="decimal" value="'+esc(c.precio||"")+'"></label><label class="f" for="cbIni">Inicio de la prueba<input id="cbIni" type="date" value="'+esc(c.inicio||"")+'"></label></div>'+
+    '<label class="f" for="cbFil">Productos que rota<input id="cbFil" type="search" placeholder="Filtrar"></label><div class="chk" id="cbChk">'+opts.map(k=>'<label data-n="'+esc((S.prod[k].nombre+" "+k).toLowerCase())+'"><input type="checkbox" value="'+esc(k)+'"'+((c.rot||[]).includes(k)?" checked":"")+'>'+esc(S.prod[k].nombre)+' <span class="sub">'+esc(k)+'</span></label>').join("")+'</div>'+
+    '<p class="hint">Semana base: déjala vacía y la app la calcula con los 7 días antes del inicio. Escríbela si ya la conoces por Loggro.</p>'+
+    '<div class="grid2"><label class="f" for="cbBv">Vendidos base<input id="cbBv" type="number" inputmode="decimal" value="'+esc(b.v??"")+'" placeholder="auto"></label><label class="f" for="cbBt">Ticket base ($)<input id="cbBt" type="number" inputmode="decimal" value="'+esc(b.t??"")+'" placeholder="auto"></label></div>'+
+    '<label class="f" for="cbBm">Merma base del rotativo ($)<input id="cbBm" type="number" inputmode="decimal" value="'+esc(b.m??"")+'" placeholder="auto"></label>'+
+    '<div class="btns"><button class="btn" type="submit">Guardar</button><button class="btn sec" type="button" id="cbX">Cancelar</button></div></form>');
+  $("#cbX").onclick=closeSheet;
+  $("#cbFil").oninput=e=>{const q=e.target.value.trim().toLowerCase();document.querySelectorAll("#cbChk label").forEach(l=>{l.hidden=!!q&&!l.dataset.n.includes(q);});};
+  $("#cbForm").addEventListener("submit",e=>{e.preventDefault();const nom=$("#cbNom").value.trim();if(!nom){toast("El combo necesita un nombre.");return;}
+    const num=v=>v===""?null:Number(v);
+    const data=Object.assign({},c,{nombre:nom,contenido:$("#cbCont").value.trim(),precio:Number($("#cbPrecio").value)||0,inicio:$("#cbIni").value,rot:[...document.querySelectorAll("#cbChk input:checked")].map(i=>i.value),base:{v:num($("#cbBv").value),m:num($("#cbBm").value),t:num($("#cbBt").value)}});
+    store.putCombo(id||("cb-"+rid()),data);closeSheet();toast("Combo guardado");});}
+function exportFichas(){const rows=[["Combo","Semana","Desde","Hasta","Vendidos","Merma rotativo ($)","Ticket promedio ($)","Decisión"]];
+  comboList().filter(c=>c.inicio).forEach(c=>{const f=ficha(c);rows.push([c.nombre,"Base",addDays(c.inicio,-7),addDays(c.inicio,-1),f.B.v,Math.round(f.B.m),f.B.t===null?"":Math.round(f.B.t),""]);
+    f.weeks.forEach(w=>rows.push([c.nombre,w.n+(w.parcial?" (en curso)":""),w.a,w.e,w.v,Math.round(w.m),w.t===null?"":Math.round(w.t),w.n===4&&f.done?f.dec:""]));});
+  if(rows.length===1){toast("Ningún combo tiene prueba iniciada todavía.");return;}
+  exportCSV("fichas-combos-"+today()+".csv",rows);}
 
 /* ---------- Hojas ---------- */
 function closeSheet(){$("#sheet").innerHTML="";}
@@ -349,8 +444,8 @@ function openRestore(){
     const np=Object.keys(d.prod||{}).length,nd=Object.keys(d.days||{}).length,nc=Object.keys(d.cuadres||{}).length;
     $("#rkMsg").innerHTML='<p class="hint">Copia del '+esc(String(d.fecha||"").slice(0,10))+': '+np+' productos, '+nd+' días con movimientos, '+nc+' cuadres.</p><button class="btn danger" id="rkOk">Reemplazar mis datos</button>';
     $("#rkOk").onclick=()=>{
-      if(S.backend){Object.keys(d.prod||{}).forEach(k=>store.putProd(k,d.prod[k]));Object.keys(d.days||{}).forEach(k=>store.putDay(k,(d.days[k]||{}).items||[]));Object.keys(d.cuadres||{}).forEach(k=>store.putCuadre(k,d.cuadres[k]));}
-      else{S.prod=d.prod||{};S.days=d.days||{};S.cuadres=d.cuadres||{};saveLocal();}
+      if(S.backend){Object.keys(d.prod||{}).forEach(k=>store.putProd(k,d.prod[k]));Object.keys(d.days||{}).forEach(k=>store.putDay(k,d.days[k]||{items:[]}));Object.keys(d.combos||{}).forEach(k=>store.putCombo(k,d.combos[k]));Object.keys(d.cuadres||{}).forEach(k=>store.putCuadre(k,d.cuadres[k]));}
+      else{S.prod=d.prod||{};S.days=d.days||{};S.cuadres=d.cuadres||{};S.combos=d.combos||S.combos;saveLocal();}
       closeSheet();toast("Copia restaurada");render();};};
 }
 /* ---------- Eventos ---------- */
@@ -366,10 +461,10 @@ function bind(){
     [["mLote","lote"],["mVence","vence"],["mCosto","costo"],["mNota","nota"],["mMotivo","motivo"]].forEach(([i,k])=>{const el=$("#"+i);if(el)el.oninput=el.onchange=e=>{M[k]=e.target.value;};});
     $("#mSave").onclick=()=>{const q=Number(M.qty);if(!M.p){toast("Elige un producto.");return;}if(!q||(M.t!=="ajuste"&&q<0)){toast("La cantidad debe ser mayor que cero.");return;}
       const mv={id:rid(),p:M.p,t:M.t,q,ts:Date.now()};if(M.t==="entrada"){if(M.lote)mv.lote=M.lote.trim();if(M.vence)mv.vence=M.vence;}if(M.t==="merma")mv.motivo=M.motivo;if(M.nota.trim())mv.nota=M.nota.trim();
-      const d=today();const items=((S.days[d]||{}).items||[]).concat([mv]);store.putDay(d,items);
+      const d=today();const items=((S.days[d]||{}).items||[]).concat([mv]);saveDay(d,{items});
       if(M.t==="entrada"&&Number(M.costo)>0&&S.prod[M.p])store.putProd(M.p,Object.assign({},S.prod[M.p],{costo:Number(M.costo)}));
       toast(TIPOS[M.t]+" guardada: "+fmt(q)+" · "+prodName(M.p));Object.assign(M,{qty:1,lote:"",vence:"",costo:"",nota:""});render();};
-    main.querySelectorAll("[data-delmov]").forEach(b=>b.onclick=()=>{if(b.dataset.armed){const d=today();store.putDay(d,((S.days[d]||{}).items||[]).filter(x=>x.id!==b.dataset.delmov));toast("Movimiento borrado");}else{b.dataset.armed="1";b.textContent="¿Seguro?";b.style.color="var(--bad)";}});
+    main.querySelectorAll("[data-delmov]").forEach(b=>b.onclick=()=>{if(b.dataset.armed){const d=today();saveDay(d,{items:((S.days[d]||{}).items||[]).filter(x=>x.id!==b.dataset.delmov)});toast("Movimiento borrado");}else{b.dataset.armed="1";b.textContent="¿Seguro?";b.style.color="var(--bad)";}});
   }
   if(S.view==="stock"){
     $("#sQ").oninput=e=>{S.q=e.target.value;const pos=e.target.selectionStart;render();const n=$("#sQ");n.focus();try{n.setSelectionRange(pos,pos);}catch(_){}}
@@ -388,10 +483,12 @@ function bind(){
       if(!filas.length)return;const id="c"+Date.now();store.putCuadre(id,{ts:Date.now(),fecha:today(),nota:$("#cNota").value.trim(),filas});S.draft={};toast("Cuadre guardado: "+filas.length+" productos");render();};
     main.querySelectorAll("[data-cuadre]").forEach(b=>b.onclick=()=>showCuadre(b.dataset.cuadre));
   }
+  if(S.view==="combos")bindCombos(main);
   if(S.view==="mas"){
-    $("#bkExp").onclick=()=>saveFile("respaldo-inventario-capiro-"+today()+".json",JSON.stringify({app:"inventario-capiro",version:1,fecha:new Date().toISOString(),prod:S.prod,days:S.days,cuadres:S.cuadres}),"application/json");
+    $("#bkExp").onclick=()=>saveFile("respaldo-inventario-capiro-"+today()+".json",JSON.stringify({app:"inventario-capiro",version:1,fecha:new Date().toISOString(),prod:S.prod,days:S.days,cuadres:S.cuadres,combos:S.combos}),"application/json");
     $("#bkImp").onclick=openRestore;
     $("#xStock").onclick=()=>{const {res}=computeAll();exportCSV("stock-capiro-"+today()+".csv",[["Código","Producto","Categoría","Unidad","Stock app","Mínimo","Ideal","Costo","Valor","Último conteo"]].concat(Object.keys(res).sort().map(id=>{const p=S.prod[id],f=res[id];return[id,p.nombre,p.cat,p.unidad,f.stock,p.min,p.ideal,p.costo,Math.max(0,f.stock)*(Number(p.costo)||0),f.counted?ftime(f.since):""];})));};
+    $("#xCombos").onclick=exportFichas;
     $("#xMov").onclick=()=>exportCSV("movimientos-capiro-"+today()+".csv",[["Fecha","Código","Producto","Tipo","Cantidad","Lote","Vence","Motivo","Nota"]].concat(allMovs().map(m=>[ftime(m.ts),m.p,prodName(m.p),TIPOS[m.t],sign(m),m.lote||"",m.vence||"",m.motivo||"",m.nota||""])));
   }
 }

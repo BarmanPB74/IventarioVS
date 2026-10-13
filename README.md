@@ -10,7 +10,8 @@ App de control de inventario para Café Capiro (vivero Capiro, La Ceja, Antioqui
 - Indica cada día qué lote sacar primero (FEFO), qué está bajo el mínimo y cuánto pedir.
 - Cuadra el conteo físico contra el stock y las ventas que reporta Loggro, y calcula ventas sin registrar y error de stock por producto.
 - Exporta CSV para Excel o Google Sheets y guarda copias de seguridad en JSON.
-- Trae precargados los 91 productos del catálogo del café.
+- Mide cada combo durante 4 semanas contra su semana base y propone mantenerlo, ajustarlo o retirarlo.
+- Trae precargados los 91 productos del catálogo del café y 9 combos de la carta.
 
 ## Descargar
 
@@ -50,4 +51,5 @@ En el APK y en la versión web los datos se guardan solo en ese dispositivo. Haz
 | Versión | Estado |
 | --- | --- |
 | 0.1 Control | Publicada |
-| 0.2 Promociones | Siguiente; ver el plan de evolución |
+| 0.2 Promociones | Publicada: pestaña Combos con registro diario, ticket promedio y ficha de prueba de 4 semanas |
+| 0.3 Costos y margen | Siguiente; ver el plan de evolución |
