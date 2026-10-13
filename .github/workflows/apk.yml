@@ -29,9 +29,13 @@ jobs:
           echo "Versión de la app: $V"
 
       - name: Renombrar versiones anteriores para que coincidan con la app
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
+          exec > >(tee rename.log) 2>&1
+          set -x
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           for n in 1 2 3 4 5; do
@@ -89,6 +93,7 @@ jobs:
         run: |
           mkdir -p out
           cp build.log out/ 2>/dev/null || true
+          cp rename.log out/ 2>/dev/null || true
           cp android/app/build/outputs/apk/debug/app-debug.apk out/inventario-capiro.apk 2>/dev/null || true
           echo "${{ job.status }} ${GITHUB_SHA}" > out/estado.txt
           cd out
